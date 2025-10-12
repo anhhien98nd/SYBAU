@@ -1,0 +1,253 @@
+--// 📦 Dịch vụ Roblox
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+--// ================= CẤU HÌNH =================
+local destinations = {
+	Vector3.new(18.37, 0.37, -140.72),
+	Vector3.new(18.86, 0.37, -114.86)
+}
+
+-- Remote setup
+local remote = ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent")
+
+-- Spam thường
+local spam = false
+local spamDelay = 0.65
+local spamArgs = {
+	{
+		{
+			buffer.fromstring("\019\000\000\0000201100101186595482\000")
+		},
+		"\019"
+	}
+}
+
+-- Spam M1
+local spamM1 = false
+local spamM1Delay = 0.1
+local spamM1Args = {
+	{
+		{
+			buffer.fromstring("\019\000\000\0000301000101682028538\000")
+		},
+		"\019"
+	}
+}
+
+-- Khóa vị trí
+local lockPosition = false
+local targetPosition = Vector3.new(-22.40, 0.33, 100.98)
+local altTargetPosition = Vector3.new(-22.36, 0.33, 98.35)
+
+--// ================= HÀM HỖ TRỢ =================
+local function teleportTo(position)
+	local char = player.Character or player.CharacterAdded:Wait()
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	if hrp then
+		hrp.CFrame = CFrame.new(position + Vector3.new(0, 5, 0))
+		if humanoid then
+			humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+		end
+	end
+end
+
+--// ================= GIAO DIỆN CHÍNH =================
+local gui = Instance.new("ScreenGui")
+gui.Name = "MainControlGui"
+gui.ResetOnSpawn = false
+gui.Parent = PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 350, 0, 310)
+frame.Position = UDim2.new(0, 432, 0, 562) -- 📍 Di chuyển GUI xuống X:432, Y:562
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BorderSizePixel = 0
+frame.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -35, 0, 30)
+title.Position = UDim2.new(0, 10, 0, 5)
+title.Text = "⚙️ Multi Control Panel"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.BackgroundTransparency = 1
+title.Parent = frame
+
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 25, 0, 25)
+closeButton.Position = UDim2.new(1, -30, 0, 5)
+closeButton.Text = "X"
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 16
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+closeButton.BorderSizePixel = 0
+closeButton.Parent = frame
+closeButton.MouseButton1Click:Connect(function()
+	gui:Destroy()
+end)
+
+--// ================= NÚT CHỨC NĂNG =================
+local yPos = 40
+
+-- ⚡ Teleport Cổng 1, 2
+for i, pos in ipairs(destinations) do
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 150, 0, 30)
+	btn.Position = UDim2.new(0, 10, 0, yPos)
+	btn.Text = "⚡ Teleport Cổng " .. i
+	btn.Font = Enum.Font.Gotham
+	btn.TextSize = 14
+	btn.TextColor3 = Color3.new(1, 1, 1)
+	btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+	btn.BorderSizePixel = 0
+	btn.Parent = frame
+	btn.MouseButton1Click:Connect(function()
+		teleportTo(pos)
+	end)
+	yPos = yPos + 35
+end
+
+-- 🔁 Nút Spam thường
+local spamButton = Instance.new("TextButton")
+spamButton.Size = UDim2.new(0, 150, 0, 30)
+spamButton.Position = UDim2.new(0, 190, 0, 40)
+spamButton.Text = "Bật Spam"
+spamButton.Font = Enum.Font.GothamSemibold
+spamButton.TextSize = 14
+spamButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+spamButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+spamButton.BorderSizePixel = 0
+spamButton.Parent = frame
+
+spamButton.MouseButton1Click:Connect(function()
+	spam = not spam
+	if spam then
+		spamButton.Text = "Tắt Spam"
+		spamButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	else
+		spamButton.Text = "Bật Spam"
+		spamButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	end
+end)
+
+-- 🔁 Nút Spam M1
+local spamM1Button = Instance.new("TextButton")
+spamM1Button.Size = UDim2.new(0, 150, 0, 30)
+spamM1Button.Position = UDim2.new(0, 190, 0, 80)
+spamM1Button.Text = "Bật Spam M1"
+spamM1Button.Font = Enum.Font.GothamSemibold
+spamM1Button.TextSize = 14
+spamM1Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+spamM1Button.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+spamM1Button.BorderSizePixel = 0
+spamM1Button.Parent = frame
+
+spamM1Button.MouseButton1Click:Connect(function()
+	spamM1 = not spamM1
+	if spamM1 then
+		spamM1Button.Text = "Tắt Spam M1"
+		spamM1Button.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	else
+		spamM1Button.Text = "Bật Spam M1"
+		spamM1Button.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	end
+end)
+
+-- ⚓ Khóa vị trí 1
+local lockButton1 = Instance.new("TextButton")
+lockButton1.Size = UDim2.new(0, 150, 0, 30)
+lockButton1.Position = UDim2.new(0, 190, 0, 120)
+lockButton1.Text = "Khóa vị trí 1"
+lockButton1.Font = Enum.Font.GothamSemibold
+lockButton1.TextSize = 14
+lockButton1.TextColor3 = Color3.fromRGB(255, 255, 255)
+lockButton1.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+lockButton1.BorderSizePixel = 0
+lockButton1.Parent = frame
+
+-- ⚓ Khóa vị trí 2
+local lockButton2 = Instance.new("TextButton")
+lockButton2.Size = UDim2.new(0, 150, 0, 30)
+lockButton2.Position = UDim2.new(0, 190, 0, 160)
+lockButton2.Text = "Khóa vị trí 2"
+lockButton2.Font = Enum.Font.GothamSemibold
+lockButton2.TextSize = 14
+lockButton2.TextColor3 = Color3.fromRGB(255, 255, 255)
+lockButton2.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+lockButton2.BorderSizePixel = 0
+lockButton2.Parent = frame
+
+-- Nút 1
+lockButton1.MouseButton1Click:Connect(function()
+	lockPosition = not lockPosition
+	targetPosition = Vector3.new(-22.40, 0.33, 100.98)
+	if lockPosition then
+		lockButton1.Text = "Đang khóa 1"
+		lockButton1.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	else
+		lockButton1.Text = "Khóa vị trí 1"
+		lockButton1.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	end
+end)
+
+-- Nút 2
+lockButton2.MouseButton1Click:Connect(function()
+	lockPosition = not lockPosition
+	targetPosition = altTargetPosition
+	if lockPosition then
+		lockButton2.Text = "Đang khóa 2"
+		lockButton2.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	else
+		lockButton2.Text = "Khóa vị trí 2"
+		lockButton2.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	end
+end)
+
+--// ================= VÒNG LẶP =================
+task.spawn(function()
+	while true do
+		if spam then
+			pcall(function()
+				remote:FireServer(unpack(spamArgs))
+			end)
+		end
+		task.wait(spamDelay)
+	end
+end)
+
+task.spawn(function()
+	while true do
+		if spamM1 then
+			pcall(function()
+				remote:FireServer(unpack(spamM1Args))
+			end)
+		end
+		task.wait(spamM1Delay)
+	end
+end)
+
+RunService.Heartbeat:Connect(function()
+	if lockPosition then
+		local char = player.Character
+		if char and char:FindFirstChild("HumanoidRootPart") then
+			local hrp = char.HumanoidRootPart
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			hrp.Velocity = Vector3.zero
+			hrp.RotVelocity = Vector3.zero
+			hrp.CFrame = CFrame.new(targetPosition)
+			if hum then
+				hum.WalkSpeed = 0
+				hum.JumpPower = 0
+			end
+		end
+	end
+end)
