@@ -1,0 +1,400 @@
+--[[ 
+🧩 GAME HACKER MULTI TOOL v1.0
+Tổng hợp: Fast M1, Spam M1, Spam M2, Shield, Tele, TP1, TP2
+Bao gồm: Anti-Kick & Anti-AFK
+Tác giả: Game Hacker
+]]
+
+--// 🛡️ ANTI-KICK + ANTI-AFK
+local success_mt, mt = pcall(function() return getrawmetatable(game) end)
+if success_mt and mt then
+    local setro = setreadonly or make_writeable -- compat
+    setro(mt, false)
+    local old = mt.__namecall
+    mt.__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+
+        if method == "Kick" or method == "kick" or method == "Disconnect" then
+            warn("[🚫 Anti-Kick] Chặn yêu cầu kick:", tostring(args[1] or "Không rõ lý do"))
+            return nil
+        end
+        if tostring(self):lower():find("remotekick") or tostring(self):lower():find("remotetimeout") then
+            warn("[🚫 Anti-Kick] Chặn remote kick event:", tostring(self))
+            return nil
+        end
+
+        return old(self, unpack(args))
+    end)
+    setro(mt, true)
+    print("[🛡️ Anti-Kick] Đã bật thành công!")
+else
+    warn("[🛡️ Anti-Kick] Không thể truy cập metatable (yêu cầu executor hỗ trợ).")
+end
+
+pcall(function()
+    game:GetService("Players").LocalPlayer.Idled:Connect(function()
+        pcall(function()
+            local vu = game:GetService("VirtualUser")
+            vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            task.wait(1)
+            vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+            warn("[⚙️ Anti-AFK] Đã ngăn AFK kick!")
+        end)
+    end)
+end)
+
+--// ⚙️ SETUP DỊCH VỤ
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+--// 🌙 GUI CHÍNH
+local mainGui = Instance.new("ScreenGui")
+mainGui.Name = "GameHackerPanel"
+mainGui.ResetOnSpawn = false
+mainGui.Parent = PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 300, 0, 220)
+frame.Position = UDim2.new(0.5, -150, 0.5, -110)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = mainGui
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, -20, 0, 30)
+title.Position = UDim2.new(0, 10, 0, 5)
+title.Text = "🧩 Game Hacker Multi Tool"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.BackgroundTransparency = 1
+
+local closeButton = Instance.new("TextButton", frame)
+closeButton.Size = UDim2.new(0, 25, 0, 25)
+closeButton.Position = UDim2.new(1, -30, 0, 5)
+closeButton.Text = "X"
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 16
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+closeButton.BorderSizePixel = 0
+closeButton.Parent = frame
+closeButton.MouseButton1Click:Connect(function()
+    mainGui:Destroy()
+end)
+
+--// 🗂️ TAB HỆ THỐNG
+local tabFrame = Instance.new("Frame", frame)
+tabFrame.Size = UDim2.new(0, 100, 1, -40)
+tabFrame.Position = UDim2.new(0, 0, 0, 35)
+tabFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+tabFrame.BorderSizePixel = 0
+
+local contentFrame = Instance.new("Frame", frame)
+contentFrame.Size = UDim2.new(1, -110, 1, -40)
+contentFrame.Position = UDim2.new(0, 110, 0, 35)
+contentFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+contentFrame.BorderSizePixel = 0
+
+local function createTabButton(name, order)
+    local btn = Instance.new("TextButton", tabFrame)
+    btn.Size = UDim2.new(1, 0, 0, 25)
+    btn.Position = UDim2.new(0, 0, 0, (order-1)*30)
+    btn.Text = name
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 14
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+    btn.BorderSizePixel = 0
+    return btn
+end
+
+local features = {"Fast M1","Spam M1","Spam M2","Shield","Tele","TP1","TP2"}
+local tabs = {}
+for i, feature in ipairs(features) do
+    tabs[feature] = createTabButton(feature, i)
+end
+
+local function clearContent()
+    for _, v in pairs(contentFrame:GetChildren()) do
+        if v:IsA("GuiObject") then v:Destroy() end
+    end
+end
+
+--// CÁC MODULE CHỨC NĂNG
+local function fastM1Tab()
+    clearContent()
+    local delayTime = 0.1
+    local spam = false
+    local remote = ReplicatedStorage:FindFirstChild("BridgeNet2") and ReplicatedStorage.BridgeNet2:FindFirstChild("dataRemoteEvent")
+    local args = {{{buffer.fromstring("\019\000\000\0000201000113686372022\000")},"\019"}}
+
+    local button = Instance.new("TextButton", contentFrame)
+    button.Size = UDim2.new(0, 140, 0, 40)
+    button.Position = UDim2.new(0.5, -70, 0.5, -20)
+    button.Text = "Bật Spam"
+    button.Font = Enum.Font.GothamSemibold
+    button.TextSize = 14
+    button.TextColor3 = Color3.fromRGB(255,255,255)
+    button.BackgroundColor3 = Color3.fromRGB(0,170,0)
+    button.BorderSizePixel = 0
+
+    task.spawn(function()
+        while true do
+            task.wait(delayTime)
+            if spam and remote then
+                pcall(function() remote:FireServer(unpack(args)) end)
+            end
+        end
+    end)
+
+    button.MouseButton1Click:Connect(function()
+        spam = not spam
+        if spam then
+            button.Text = "Tắt Spam"
+            button.BackgroundColor3 = Color3.fromRGB(200,50,50)
+        else
+            button.Text = "Bật Spam"
+            button.BackgroundColor3 = Color3.fromRGB(0,170,0)
+        end
+    end)
+end
+
+local function spamM1Tab()
+    clearContent()
+    local delayTime = 0.35
+    local spam = false
+    local remote = ReplicatedStorage:FindFirstChild("BridgeNet2") and ReplicatedStorage.BridgeNet2:FindFirstChild("dataRemoteEvent")
+    local args = {{{buffer.fromstring("\019\000\000\0000201000113686372022\000")},"\019"}}
+
+    local btn = Instance.new("TextButton", contentFrame)
+    btn.Size = UDim2.new(0, 140, 0, 40)
+    btn.Position = UDim2.new(0.5, -70, 0.5, -20)
+    btn.Text = "Bật Spam"
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 14
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.BackgroundColor3 = Color3.fromRGB(0,170,0)
+
+    task.spawn(function()
+        while true do
+            task.wait(delayTime)
+            if spam and remote then
+                pcall(function() remote:FireServer(unpack(args)) end)
+            end
+        end
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        spam = not spam
+        btn.Text = spam and "Tắt Spam" or "Bật Spam"
+        btn.BackgroundColor3 = spam and Color3.fromRGB(200,50,50) or Color3.fromRGB(0,170,0)
+    end)
+end
+
+local function spamM2Tab()
+    clearContent()
+    local delayTime = 0.65
+    local spam = false
+    local remote = ReplicatedStorage:FindFirstChild("BridgeNet2") and ReplicatedStorage.BridgeNet2:FindFirstChild("dataRemoteEvent")
+
+    local btn = Instance.new("TextButton", contentFrame)
+    btn.Size = UDim2.new(0, 140, 0, 40)
+    btn.Position = UDim2.new(0.5, -70, 0.5, -20)
+    btn.Text = "Bật Spam"
+    btn.Font = Enum.Font.GothamSemibold
+    btn.TextSize = 14
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.BackgroundColor3 = Color3.fromRGB(0,170,0)
+
+    task.spawn(function()
+        while true do
+            task.wait(delayTime)
+            if spam and remote then
+                local args = {{{buffer.fromstring("\019\000\000\0000201100101186595482\000")},"\019"}}
+                pcall(function() remote:FireServer(unpack(args)) end)
+            end
+        end
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        spam = not spam
+        btn.Text = spam and "Tắt Spam" or "Bật Spam"
+        btn.BackgroundColor3 = spam and Color3.fromRGB(200,50,50) or Color3.fromRGB(0,170,0)
+    end)
+end
+
+local function shieldTab()
+    clearContent()
+    local isOn = false
+    local remote = ReplicatedStorage:FindFirstChild("BridgeNet2") and ReplicatedStorage.BridgeNet2:FindFirstChild("dataRemoteEvent")
+
+    local btn = Instance.new("TextButton", contentFrame)
+    btn.Size = UDim2.new(0, 140, 0, 40)
+    btn.Position = UDim2.new(0.5, -70, 0.5, -20)
+    btn.Text = "Tắt"
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 16
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.BackgroundColor3 = Color3.fromRGB(255,60,60)
+
+    btn.MouseButton1Click:Connect(function()
+        isOn = not isOn
+        btn.Text = isOn and "Bật" or "Tắt"
+        btn.BackgroundColor3 = isOn and Color3.fromRGB(60,255,60) or Color3.fromRGB(255,60,60)
+        local args = {{isOn,"\024"}}
+        if remote then pcall(function() remote:FireServer(unpack(args)) end) end
+    end)
+end
+
+local function teleTab()
+    clearContent()
+    local locations = {
+        ["Cổng 1"] = Vector3.new(18.867, 0.372, -114.862),
+        ["Cổng 2"] = Vector3.new(18.373, 0.372, -140.728)
+    }
+
+    local function teleport(pos)
+        local char = player.Character or player.CharacterAdded:Wait()
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then hrp.CFrame = CFrame.new(pos + Vector3.new(0,5,0)) end
+    end
+
+    local btn1 = Instance.new("TextButton", contentFrame)
+    btn1.Size = UDim2.new(0, 160, 0, 35)
+    btn1.Position = UDim2.new(0.5, -80, 0, 50)
+    btn1.Text = "TP Cổng 1"
+    btn1.BackgroundColor3 = Color3.fromRGB(70,130,255)
+    btn1.TextColor3 = Color3.new(1,1,1)
+
+    local btn2 = Instance.new("TextButton", contentFrame)
+    btn2.Size = UDim2.new(0, 160, 0, 35)
+    btn2.Position = UDim2.new(0.5, -80, 0, 95)
+    btn2.Text = "TP Cổng 2"
+    btn2.BackgroundColor3 = Color3.fromRGB(70,255,130)
+    btn2.TextColor3 = Color3.new(1,1,1)
+
+    btn1.MouseButton1Click:Connect(function() teleport(locations["Cổng 1"]) end)
+    btn2.MouseButton1Click:Connect(function() teleport(locations["Cổng 2"]) end)
+end
+
+local function tp1Tab()
+    clearContent()
+    local lock = false
+    local target = Vector3.new(40.00, 3.63, -130.14)
+    local btn = Instance.new("TextButton", contentFrame)
+    btn.Size = UDim2.new(0, 160, 0, 35)
+    btn.Position = UDim2.new(0.5, -80, 0.5, -20)
+    btn.Text = "Bật khóa vị trí"
+    btn.Font = Enum.Font.GothamBold
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.BackgroundColor3 = Color3.fromRGB(0,170,0)
+
+    RunService.Heartbeat:Connect(function()
+        if lock then
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                hrp.Velocity, hrp.RotVelocity = Vector3.zero, Vector3.zero
+                hrp.CFrame = CFrame.new(target)
+                if hum then hum.WalkSpeed, hum.JumpPower = 0, 0 end
+            end
+        end
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        lock = not lock
+        if lock then
+            btn.Text = "Tắt khóa vị trí"
+            btn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+            StarterGui:SetCore("SendNotification",{Title="⚓ Đã khóa vị trí!",Text=string.format("X:%.2f Y:%.2f Z:%.2f",target.X,target.Y,target.Z),Duration=3})
+        else
+            btn.Text = "Bật khóa vị trí"
+            btn.BackgroundColor3 = Color3.fromRGB(0,170,0)
+            local hum = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+            if hum then hum.WalkSpeed, hum.JumpPower = 16, 50 end
+            StarterGui:SetCore("SendNotification",{Title="✅ Đã mở khóa di chuyển",Text="Bạn có thể di chuyển tự do.",Duration=3})
+        end
+    end)
+end
+
+local function tp2Tab()
+    clearContent()
+    local lock = false
+    local target = Vector3.new(42.29, 3.63, -132.49)
+    local look = nil
+
+    local btn = Instance.new("TextButton", contentFrame)
+    btn.Size = UDim2.new(0, 180, 0, 35)
+    btn.Position = UDim2.new(0.5, -90, 0.5, -20)
+    btn.Text = "Bật khóa vị trí"
+    btn.Font = Enum.Font.GothamBold
+    btn.TextColor3 = Color3.new(1,1,1)
+    btn.BackgroundColor3 = Color3.fromRGB(0,170,0)
+
+    RunService.Heartbeat:Connect(function()
+        if lock then
+            local char = player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                local hrp = char.HumanoidRootPart
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if look then hrp.CFrame = CFrame.new(target, target + look) end
+                hrp.Velocity, hrp.RotVelocity = Vector3.zero, Vector3.zero
+                if hum then hum.WalkSpeed, hum.JumpPower = 0, 0 end
+            end
+        end
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        lock = not lock
+        local char = player.Character
+        if lock then
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                look = char.HumanoidRootPart.CFrame.LookVector
+            end
+            btn.Text = "Tắt khóa vị trí"
+            btn.BackgroundColor3 = Color3.fromRGB(200,50,50)
+            StarterGui:SetCore("SendNotification",{Title="⚓ Đã khóa vị trí!",Text="Giữ hướng nhìn hiện tại",Duration=3})
+        else
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                hum.WalkSpeed, hum.JumpPower = 16, 50
+            end
+            look = nil
+            btn.Text = "Bật khóa vị trí"
+            btn.BackgroundColor3 = Color3.fromRGB(0,170,0)
+            StarterGui:SetCore("SendNotification",{Title="✅ Đã mở khóa di chuyển",Text="Bạn có thể di chuyển và xoay hướng.",Duration=3})
+        end
+    end)
+end
+
+--// GÁN HÀM VÀO TAB
+local tabFunctions = {
+    ["Fast M1"] = fastM1Tab,
+    ["Spam M1"] = spamM1Tab,
+    ["Spam M2"] = spamM2Tab,
+    ["Shield"] = shieldTab,
+    ["Tele"] = teleTab,
+    ["TP1"] = tp1Tab,
+    ["TP2"] = tp2Tab
+}
+
+for name, btn in pairs(tabs) do
+    btn.MouseButton1Click:Connect(function()
+        for _, b in pairs(tabs) do b.BackgroundColor3 = Color3.fromRGB(60,60,60) end
+        btn.BackgroundColor3 = Color3.fromRGB(100,100,100)
+        if tabFunctions[name] then pcall(tabFunctions[name]) end
+    end)
+end
+
+-- Auto open first tab
+pcall(function() tabs["Fast M1"].BackgroundColor3 = Color3.fromRGB(100,100,100); fastM1Tab() end)
+print("[✅ Game Hacker Multi Tool] Đã tải xong GUI!")
