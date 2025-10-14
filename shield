@@ -3,6 +3,7 @@
 -- Tạo GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ToggleGUI"
+ScreenGui.ResetOnSpawn = false -- ✅ Quan trọng: không mất khi reset nhân vật
 ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
 local ToggleButton = Instance.new("TextButton")
