@@ -1,0 +1,117 @@
+--// Services
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local StarterGui = game:GetService("StarterGui")
+
+--// Variables
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+
+local lockPosition = false
+local targetPosition = Vector3.new(40.00, 3.63, -130.14) -- ⚓ Vị trí cố định mới
+
+--// GUI Setup
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "LockPositionGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 100)
+frame.Position = UDim2.new(0.5, -100, 0.5, -50)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BackgroundTransparency = 0.1
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -20, 0, 25)
+title.Position = UDim2.new(0, 10, 0, 5)
+title.Text = "⚓ Khóa vị trí nhân vật"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.BackgroundTransparency = 1
+title.Parent = frame
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 160, 0, 30)
+toggleButton.Position = UDim2.new(0.5, -80, 0, 40)
+toggleButton.Text = "Bật khóa vị trí"
+toggleButton.Font = Enum.Font.GothamSemibold
+toggleButton.TextSize = 14
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+toggleButton.BorderSizePixel = 0
+toggleButton.Parent = frame
+
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 25, 0, 25)
+closeButton.Position = UDim2.new(1, -30, 0, 5)
+closeButton.Text = "X"
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 16
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+closeButton.BorderSizePixel = 0
+closeButton.Parent = frame
+
+--// Lock loop
+RunService.Heartbeat:Connect(function()
+	if lockPosition then
+		local char = player.Character
+		if char and char:FindFirstChild("HumanoidRootPart") then
+			local hrp = char.HumanoidRootPart
+			local hum = char:FindFirstChildOfClass("Humanoid")
+
+			-- Giữ nhân vật ở đúng vị trí
+			hrp.Velocity = Vector3.zero
+			hrp.RotVelocity = Vector3.zero
+			hrp.CFrame = CFrame.new(targetPosition)
+
+			-- Khóa di chuyển / nhảy
+			if hum then
+				hum.WalkSpeed = 0
+				hum.JumpPower = 0
+			end
+		end
+	end
+end)
+
+--// Toggle Button
+toggleButton.MouseButton1Click:Connect(function()
+	lockPosition = not lockPosition
+	if lockPosition then
+		toggleButton.Text = "Tắt khóa vị trí"
+		toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+		StarterGui:SetCore("SendNotification", {
+			Title = "⚓ Đã khóa vị trí!",
+			Text = string.format("X: %.2f, Y: %.2f, Z: %.2f", targetPosition.X, targetPosition.Y, targetPosition.Z),
+			Duration = 3
+		})
+	else
+		toggleButton.Text = "Bật khóa vị trí"
+		toggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+
+		-- Mở lại di chuyển
+		local char = player.Character
+		if char and char:FindFirstChildOfClass("Humanoid") then
+			local hum = char:FindFirstChildOfClass("Humanoid")
+			hum.WalkSpeed = 16
+			hum.JumpPower = 50
+		end
+
+		StarterGui:SetCore("SendNotification", {
+			Title = "✅ Đã mở khóa di chuyển",
+			Text = "Bạn có thể di chuyển tự do.",
+			Duration = 3
+		})
+	end
+end)
+
+--// Close Button
+closeButton.MouseButton1Click:Connect(function()
+	screenGui:Destroy()
+end)
