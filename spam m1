@@ -1,0 +1,99 @@
+--// Services
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+--// Remote Settings (đã thay thế)
+local args = {
+	{
+		{
+			buffer.fromstring("\019\000\000\0000201000113686372022\000"),
+			game:GetService("Players"):WaitForChild("zpq_xan").Character
+		},
+		"\019"
+	}
+}
+
+local remote = ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent")
+
+--// Variables
+local player = Players.LocalPlayer
+local PlayerGui = player:WaitForChild("PlayerGui")
+local spam = false
+local delayTime = 0.35 -- chỉnh tốc độ spam ở đây
+
+--// GUI Setup
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "SpamM1Gui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = PlayerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 180, 0, 100)
+frame.Position = UDim2.new(0.5, -90, 0.5, -50)
+frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+frame.BackgroundTransparency = 0.1
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -20, 0, 30)
+title.Position = UDim2.new(0, 10, 0, 5)
+title.Text = "⚙️ Spam M1 Controller"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.BackgroundTransparency = 1
+title.Parent = frame
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(0, 140, 0, 30)
+toggleButton.Position = UDim2.new(0.5, -70, 0, 40)
+toggleButton.Text = "Bật Spam"
+toggleButton.Font = Enum.Font.GothamSemibold
+toggleButton.TextSize = 14
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+toggleButton.BorderSizePixel = 0
+toggleButton.Parent = frame
+
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 25, 0, 25)
+closeButton.Position = UDim2.new(1, -30, 0, 5)
+closeButton.Text = "X"
+closeButton.Font = Enum.Font.GothamBold
+closeButton.TextSize = 16
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+closeButton.BorderSizePixel = 0
+closeButton.Parent = frame
+
+--// Spam Loop
+task.spawn(function()
+	while true do
+		if spam then
+			pcall(function()
+				remote:FireServer(unpack(args))
+			end)
+		end
+		task.wait(delayTime)
+	end
+end)
+
+--// Toggle Spam Button
+toggleButton.MouseButton1Click:Connect(function()
+	spam = not spam
+	if spam then
+		toggleButton.Text = "Tắt Spam"
+		toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+	else
+		toggleButton.Text = "Bật Spam"
+		toggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+	end
+end)
+
+--// Close GUI
+closeButton.MouseButton1Click:Connect(function()
+	screenGui:Destroy()
+end)
