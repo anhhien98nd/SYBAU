@@ -1,10 +1,9 @@
--- Unified Control Panel (TP / Spam M1 / Spam 2 / AutoMove / ToggleFire)
--- GUI cố định, ResetOnSpawn = false (giữ khi respawn), spam có thể chạy cùng lúc
+-- ⚙️ UNIFIED CONTROL PANEL (TP / Spam M1 / Spam 2 / AutoMove / ToggleFire)
+-- GUI cố định, ResetOnSpawn = false — AutoMove đã sửa hoạt động ổn định
 
 --// Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local PlayerGui = player:WaitForChild("PlayerGui")
@@ -22,12 +21,12 @@ local buttonNames = {
 	["ddumevailn"] = "Cổng 1"
 }
 
---// Spam args (đã thay thế theo yêu cầu)
+--// Spam args
 local spamM1_args = {
 	{
 		{
 			buffer.fromstring("\019\000\000\0000201000113686372022\000"),
-			game:GetService("Players"):WaitForChild("zpq_xan").Character
+			game:GetService("Players"):WaitForChild("@@").Character
 		},
 		"\019"
 	}
@@ -40,7 +39,7 @@ local spam2_args = {
 		"\019"
 	}
 }
--- ToggleFire args template (sẽ gởi true/false)
+-- ToggleFire args template
 local function toggleFireArgs(value)
 	return {
 		{
@@ -52,29 +51,10 @@ end
 
 --// State variables
 local spamM1 = false
-local spamM1Delay = 0.35 -- theo yêu cầu
+local spamM1Delay = 0.35
 local spam2 = false
-local spam2Delay = 0.65 -- theo yêu cầu
+local spam2Delay = 0.65
 local toggleFireEnabled = false
-local autoMove = false
-
--- AutoMove vars
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:FindFirstChildOfClass("Humanoid")
-local hrp = character:FindFirstChild("HumanoidRootPart")
-
-local function refreshCharacterRefs()
-	character = player.Character
-	if character then
-		humanoid = character:FindFirstChildOfClass("Humanoid") or character:FindFirstChild("Humanoid")
-		hrp = character:FindFirstChild("HumanoidRootPart")
-	end
-end
-
-player.CharacterAdded:Connect(function(char)
-	task.wait(0.1)
-	refreshCharacterRefs()
-end)
 
 --// HELPERS
 local function safeFire(argsTable)
@@ -86,31 +66,28 @@ end
 local function teleportTo(name)
 	local dest = destinations[name]
 	local char = player.Character or player.CharacterAdded:Wait()
-	local hrp_local = char:FindFirstChild("HumanoidRootPart")
+	local hrp = char:FindFirstChild("HumanoidRootPart")
 	local hum = char:FindFirstChildOfClass("Humanoid")
-	if hrp_local and dest then
-		hrp_local.CFrame = CFrame.new(dest + Vector3.new(0, 5, 0))
-		if hum then
-			hum:ChangeState(Enum.HumanoidStateType.Jumping)
-		end
+	if hrp and dest then
+		hrp.CFrame = CFrame.new(dest + Vector3.new(0, 5, 0))
+		if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
 	end
 end
 
---// GUI (1 GUI chính, cố định vị trí)
+--// GUI chính
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "UnifiedControlGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = PlayerGui
 
 local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 360, 0, 360)
-mainFrame.Position = UDim2.new(0, 20, 0, 150) -- cố định theo yêu cầu
+mainFrame.Size = UDim2.new(0, 360, 0, 380)
+mainFrame.Position = UDim2.new(0, 20, 0, 150)
 mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 mainFrame.BorderSizePixel = 0
 mainFrame.Parent = screenGui
 mainFrame.Active = true
-mainFrame.Draggable = false -- cố định
+mainFrame.Draggable = false
 
 local title = Instance.new("TextLabel")
 title.Size = UDim2.new(1, -20, 0, 30)
@@ -122,7 +99,6 @@ title.TextSize = 18
 title.TextColor3 = Color3.fromRGB(255,255,255)
 title.Parent = mainFrame
 
--- Close button (xóa GUI nhưng giữ script loops dừng theo flags)
 local closeBtn = Instance.new("TextButton")
 closeBtn.Size = UDim2.new(0, 28, 0, 28)
 closeBtn.Position = UDim2.new(1, -38, 0, 6)
@@ -134,15 +110,12 @@ closeBtn.BackgroundColor3 = Color3.fromRGB(200,0,0)
 closeBtn.BorderSizePixel = 0
 closeBtn.Parent = mainFrame
 closeBtn.MouseButton1Click:Connect(function()
-	-- khi đóng GUI, tắt tất cả hoạt động
 	spamM1 = false
 	spam2 = false
-	autoMove = false
 	toggleFireEnabled = false
 	screenGui:Destroy()
 end)
 
--- Layout start Y
 local y = 50
 local function makeSectionLabel(text)
 	local lbl = Instance.new("TextLabel")
@@ -156,7 +129,6 @@ local function makeSectionLabel(text)
 	lbl.TextXAlignment = Enum.TextXAlignment.Left
 	lbl.Parent = mainFrame
 	y = y + 24
-	return lbl
 end
 
 local function makeButton(text, px, py, w, h)
@@ -175,20 +147,17 @@ end
 
 -- ===== TP Section =====
 makeSectionLabel("🔁 Teleport")
-local tpX = 10
 local tpY = y
 for accountName, _ in pairs(destinations) do
 	local nameDisplay = buttonNames[accountName] or accountName
-	local btn = makeButton("TP: "..nameDisplay, tpX, tpY, 160, 30)
-	btn.MouseButton1Click:Connect(function()
-		teleportTo(accountName)
-	end)
+	local btn = makeButton("TP: "..nameDisplay, 10, tpY, 160, 30)
+	btn.MouseButton1Click:Connect(function() teleportTo(accountName) end)
 	tpY = tpY + 36
 end
 y = tpY + 4
 
--- ===== Spam M1 Section =====
-makeSectionLabel("⚡ Spam M1 (delay 0.35s)")
+-- ===== Spam M1 =====
+makeSectionLabel("⚡ Spam M1 (0.35s)")
 local spamM1Btn = makeButton("Bật Spam M1", 10, y, 160, 30)
 local spamM1Status = Instance.new("TextLabel")
 spamM1Status.Size = UDim2.new(0, 160, 0, 18)
@@ -214,8 +183,8 @@ spamM1Btn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- ===== Spam 2 Section =====
-makeSectionLabel("🔥 Spam 2 (delay 0.65s)")
+-- ===== Spam 2 =====
+makeSectionLabel("🔥 Spam 2 (0.65s)")
 local spam2Btn = makeButton("Bật Spam 2", 10, y, 160, 30)
 local spam2Status = Instance.new("TextLabel")
 spam2Status.Size = UDim2.new(0, 160, 0, 18)
@@ -241,8 +210,8 @@ spam2Btn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- ===== Toggle Fire Section =====
-makeSectionLabel("🔘 Toggle Fire (gửi giá trị true/false)")
+-- ===== Toggle Fire =====
+makeSectionLabel("🔘 Toggle Fire")
 local toggleFireBtn = makeButton("Bật ToggleFire", 10, y, 160, 30)
 local toggleFireStatus = Instance.new("TextLabel")
 toggleFireStatus.Size = UDim2.new(0, 160, 0, 18)
@@ -261,18 +230,16 @@ toggleFireBtn.MouseButton1Click:Connect(function()
 		toggleFireBtn.Text = "Tắt ToggleFire"
 		toggleFireBtn.BackgroundColor3 = Color3.fromRGB(200,50,50)
 		toggleFireStatus.Text = "Đang ON"
-		-- gửi 1 lần khi bật
 		safeFire(toggleFireArgs(true))
 	else
 		toggleFireBtn.Text = "Bật ToggleFire"
 		toggleFireBtn.BackgroundColor3 = Color3.fromRGB(50,50,50)
 		toggleFireStatus.Text = "Tắt"
-		-- gửi 1 lần khi tắt
 		safeFire(toggleFireArgs(false))
 	end
 end)
 
--- ===== Auto Move Section =====
+-- ===== Auto Move (đã fix hoạt động) =====
 makeSectionLabel("🏃 Auto Move (nhanh)")
 local autoMoveBtn = makeButton("Bật Auto Move", 10, y, 160, 30)
 local autoMoveStatus = Instance.new("TextLabel")
@@ -286,9 +253,11 @@ autoMoveStatus.TextColor3 = Color3.fromRGB(255,255,255)
 autoMoveStatus.Parent = mainFrame
 y = y + 40
 
+local moving = false
+
 autoMoveBtn.MouseButton1Click:Connect(function()
-	autoMove = not autoMove
-	if autoMove then
+	moving = not moving
+	if moving then
 		autoMoveBtn.Text = "Tắt Auto Move"
 		autoMoveBtn.BackgroundColor3 = Color3.fromRGB(0,200,100)
 		autoMoveStatus.Text = "Đang ON"
@@ -299,78 +268,44 @@ autoMoveBtn.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Footer info
+task.spawn(function()
+	while true do
+		if moving then
+			local char = player.Character or player.CharacterAdded:Wait()
+			local humanoid = char:FindFirstChildOfClass("Humanoid")
+			if humanoid and humanoid.Health > 0 then
+				humanoid:Move(Vector3.new(0, 0, -1), true)
+			end
+		end
+		task.wait(0.05)
+	end
+end)
+
+-- Footer
 local footer = Instance.new("TextLabel")
 footer.Size = UDim2.new(1, -20, 0, 22)
 footer.Position = UDim2.new(0, 10, 1, -30)
 footer.BackgroundTransparency = 1
-footer.Text = "GUI cố định. Spam có thể chạy cùng lúc."
+footer.Text = "GUI cố định. Spam chạy song song."
 footer.Font = Enum.Font.SourceSans
 footer.TextSize = 12
 footer.TextColor3 = Color3.fromRGB(180,180,180)
 footer.TextXAlignment = Enum.TextXAlignment.Left
 footer.Parent = mainFrame
 
---// Loops (non-blocking)
--- Spam M1 loop
+--// Loops
 task.spawn(function()
 	while true do
-		if spamM1 then
-			pcall(function()
-				remote:FireServer(unpack(spamM1_args))
-			end)
-		end
+		if spamM1 then safeFire(spamM1_args) end
 		task.wait(spamM1Delay)
 	end
 end)
 
--- Spam 2 loop
 task.spawn(function()
 	while true do
-		if spam2 then
-			pcall(function()
-				remote:FireServer(unpack(spam2_args))
-			end)
-		end
+		if spam2 then safeFire(spam2_args) end
 		task.wait(spam2Delay)
 	end
 end)
 
--- ToggleFire loop (optional periodic send if you want continuous; currently we only send once on toggle)
--- If you want continuous sending while enabled, uncomment below block:
---[[
-task.spawn(function()
-	while true do
-		if toggleFireEnabled then
-			safeFire(toggleFireArgs(true))
-		end
-		task.wait(1) -- adjust interval if needed
-	end
-end)
-]]
-
--- AutoMove loop (giữ nguyên logic di chuyển nhanh)
-task.spawn(function()
-	while true do
-		if autoMove then
-			-- ensure humanoid reference exists
-			refreshCharacterRefs()
-			if humanoid and humanoid.Parent and humanoid.Health > 0 then
-				pcall(function()
-					humanoid:Move(Vector3.new(0, 0, -1), true)
-				end)
-			end
-		end
-		task.wait(0.05) -- mượt
-	end
-end)
-
--- Ensure GUI persists: recreate minimal GUI if PlayerGui cleared (keeps ResetOnSpawn false but for safety)
--- If PlayerGui gets cleared by game, reparent the GUI back
-PlayerGui.ChildAdded:Connect(function(child)
-	-- no action needed; screenGui has ResetOnSpawn = false so should persist across respawn
-	-- this is left intentionally minimal to avoid conflicts
-end)
-
--- Print debug start
-print("UnifiedControlGui loaded. Positions fixed; ResetOnSpawn = false.")
+print("✅ UnifiedControlGui loaded — AutoMove fixed & GUI persistent.")
