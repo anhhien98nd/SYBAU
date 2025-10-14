@@ -6,8 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local args = {
 	{
 		{
-			buffer.fromstring("\019\000\000\0000201000113686372022\000"),
-			game:GetService("Players"):WaitForChild("zpq_xan").Character
+			buffer.fromstring("\019\000\000\0000201000113686372022\000")
 		},
 		"\019"
 	}
