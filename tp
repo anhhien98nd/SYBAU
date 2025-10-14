@@ -1,0 +1,70 @@
+-- 🌀 Simple Teleport GUI (Cổng 1 & Cổng 2)
+-- Made by Game Hacker
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- ===== Tọa độ đích =====
+local locations = {
+    ["Cổng 1"] = Vector3.new(18.86713409423828, 0.37274569272994995, -114.86202239990234),
+    ["Cổng 2"] = Vector3.new(18.37334884643555, 0.37274569272994995, -140.72775268554688)
+}
+
+-- ===== Tạo GUI =====
+local gui = Instance.new("ScreenGui")
+gui.Name = "TPGui"
+gui.ResetOnSpawn = false
+gui.Parent = game:GetService("CoreGui")
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 200, 0, 130)
+frame.Position = UDim2.new(0.5, -100, 0.5, -65)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+frame.Parent = gui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 28)
+title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+title.Text = "📍 Teleport Panel"
+title.Font = Enum.Font.GothamBold
+title.TextSize = 16
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.Parent = frame
+
+local function makeButton(text, yPos, color)
+	local btn = Instance.new("TextButton")
+	btn.Size = UDim2.new(0, 160, 0, 32)
+	btn.Position = UDim2.new(0.5, -80, 0, yPos)
+	btn.BackgroundColor3 = color
+	btn.Text = text
+	btn.Font = Enum.Font.Gotham
+	btn.TextSize = 14
+	btn.TextColor3 = Color3.fromRGB(255,255,255)
+	btn.Parent = frame
+	return btn
+end
+
+local tp1Btn = makeButton("TP Cổng 1", 45, Color3.fromRGB(70,130,255))
+local tp2Btn = makeButton("TP Cổng 2", 85, Color3.fromRGB(70,255,130))
+
+-- ===== Hàm Teleport =====
+local function teleportTo(pos)
+	local char = player.Character or player.CharacterAdded:Wait()
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		hrp.CFrame = CFrame.new(pos + Vector3.new(0, 5, 0))
+	end
+end
+
+tp1Btn.MouseButton1Click:Connect(function()
+	teleportTo(locations["Cổng 1"])
+end)
+tp2Btn.MouseButton1Click:Connect(function()
+	teleportTo(locations["Cổng 2"])
+end)
+
+print("✅ GUI Teleport 2 Cổng Loaded")
