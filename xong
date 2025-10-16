@@ -83,7 +83,7 @@ btnSpam1.MouseButton1Click:Connect(function()
 	if STATE.spam1 then
 		task.spawn(function()
 			while STATE.spam1 do
-				task.wait(0.35)
+				task.wait(0.4)
 				if remote and bf then
 					pcall(function()
 						remote:FireServer({{bf("\019\000\000\0000201000113686372022\000")},"\019"})
