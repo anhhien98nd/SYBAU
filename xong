@@ -1,715 +1,208 @@
---[[
-================================================================================
-  GAME HACKER MULTI TOOL - FULL EDITION (NO MINIFY)
-  - Gộp: Fast M1, Spam M1, Spam M2, Shield, Tele, TP1, TP2
-  - Anti-Kick (metamethod) + Anti-AFK (VirtualUser) (ẩn/background)
-  - GUI: Tab trái (danh sách nút bật/tắt hiển thị trực tiếp)
-  - Giữ nguyên style: dark, draggable, nút xanh/đỏ
-  - Tất cả chức năng có trạng thái ON/OFF hiển thị
-  - Tác giả: Game Hacker (custom)
-================================================================================
-USAGE:
-  - Dán toàn bộ mã vào executor hoặc LocalScript (PlayerGui) tùy môi trường.
-  - Nếu executor không cho phép chỉnh metatable, Anti-Kick sẽ không bật (có cảnh báo).
-================================================================================
-]]
-
--- ============================
--- // 1) ANTI-KICK & ANTI-AFK
--- ============================
-do
-    local ok, mt = pcall(function() return getrawmetatable(game) end)
-    if ok and mt then
-        -- cố gắng bật anti-kick (cần executor hỗ trợ)
-        local readonly = setreadonly or function() end
-        local make_ro = setreadonly
-        pcall(function() readonly(mt, false) end)
-        local oldnamecall = mt.__namecall
-        if oldnamecall then
-            mt.__namecall = newcclosure(function(self, ...)
-                local method = getnamecallmethod and getnamecallmethod() or ""
-                local args = {...}
-                -- Chặn các cuộc gọi kick/disconnect
-                if method == "Kick" or method == "kick" or method == "Disconnect" then
-                    warn("[🚫 Anti-Kick] Chặn yêu cầu kick/disconnect. Lý do:", tostring(args[1] or "Không rõ"))
-                    return nil
-                end
-                -- Chặn remote có tên khả nghi
-                local s = tostring(self):lower()
-                if s:find("remotekick") or s:find("remotetimeout") then
-                    warn("[🚫 Anti-Kick] Chặn Remote Kick/Timeout:", tostring(self))
-                    return nil
-                end
-                return oldnamecall(self, unpack(args))
-            end)
-            pcall(function() readonly(mt, true) end)
-            print("[🛡️ Anti-Kick] Đã bật thành công (metatable override).")
-        else
-            pcall(function() readonly(mt, true) end)
-            warn("[🛡️ Anti-Kick] Không tìm thấy __namecall cũ; bỏ qua override.")
-        end
-    else
-        warn("[🛡️ Anti-Kick] Không thể truy cập metatable (executor có thể không hỗ trợ).")
-    end
-
-    -- Anti-AFK (VirtualUser) — giữ im lặng, chạy nền
-    local Players = game:GetService("Players")
-    pcall(function()
-        Players.LocalPlayer.Idled:Connect(function()
-            pcall(function()
-                local vu = game:GetService("VirtualUser")
-                vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-                task.wait(1)
-                vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-                warn("[⚙️ Anti-AFK] Tín hiệu Anti-AFK được gửi.")
-            end)
-        end)
-    end)
-end
-
--- ============================
--- // 2) SERVICES & BASE VARS
--- ============================
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local StarterGui = game:GetService("StarterGui")
-local player = Players.LocalPlayer
-local PlayerGui = player:WaitForChild("PlayerGui")
+local p = Players.LocalPlayer
+local pg = p:WaitForChild("PlayerGui")
 
--- Helper pcall find remote
-local function getBridgeRemote()
-    local ok, remote = pcall(function()
-        if ReplicatedStorage:FindFirstChild("BridgeNet2") then
-            return ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent")
-        end
-    end)
-    if ok then return remote end
-    return nil
+local g = Instance.new("ScreenGui")
+g.Name = "GH_Mini"
+g.Parent = pg
+
+local f = Instance.new("Frame")
+f.Size = UDim2.new(0,220,0,320)
+f.Position = UDim2.new(1,-230,1,-340) -- góc phải dưới
+f.BackgroundColor3 = Color3.fromRGB(40,40,40)
+f.BorderSizePixel = 0
+f.Parent = g
+
+local function mkBtn(text, px, py)
+	local b = Instance.new("TextButton", f)
+	b.Size = UDim2.new(0,200,0,28)
+	b.Position = UDim2.new(0,10,0,py)
+	b.BackgroundColor3 = Color3.fromRGB(60,60,60)
+	b.TextColor3 = Color3.fromRGB(1,1,1)
+	b.Font = Enum.Font.SourceSansSemibold
+	b.TextSize = 14
+	b.Text = text
+	return b
 end
 
--- ============================
--- // 3) GLOBAL STATE (trạng thái các module)
--- ============================
-local STATE = {
-    fastM1 = false,
-    spamM1 = false,
-    spamM2 = false,
-    shield = false,
-    tp_tele = false, -- Tele module không cần trạng thái (nút TP truyền thống) nhưng vẫn giữ false
-    tp1_lock = false,
-    tp2_lock = false,
-}
-
--- ============================
--- // 4) GUI CREATION - FULL, DETAILED
--- ============================
--- Tạo ScreenGui
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "GameHackerFullGui"
-screenGui.ResetOnSpawn = false
-screenGui.Parent = PlayerGui
-
--- Main frame
-local mainFrame = Instance.new("Frame")
-mainFrame.Name = "MainFrame"
-mainFrame.Size = UDim2.new(0, 420, 0, 320)
-mainFrame.Position = UDim2.new(0.5, -210, 0.5, -160)
-mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-mainFrame.BorderSizePixel = 0
-mainFrame.Active = true
-mainFrame.Draggable = true
-mainFrame.Parent = screenGui
-
--- Title bar
-local titleBar = Instance.new("Frame")
-titleBar.Name = "TitleBar"
-titleBar.Size = UDim2.new(1, 0, 0, 36)
-titleBar.Position = UDim2.new(0, 0, 0, 0)
-titleBar.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
-titleBar.BorderSizePixel = 0
-titleBar.Parent = mainFrame
-
-local titleLabel = Instance.new("TextLabel")
-titleLabel.Name = "TitleLabel"
-titleLabel.Size = UDim2.new(1, -70, 1, 0)
-titleLabel.Position = UDim2.new(0, 10, 0, 0)
-titleLabel.BackgroundTransparency = 1
-titleLabel.Text = "🧩 Game Hacker Multi Tool — Full"
-titleLabel.Font = Enum.Font.GothamBold
-titleLabel.TextSize = 16
-titleLabel.TextColor3 = Color3.fromRGB(255,255,255)
-titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-titleLabel.Parent = titleBar
-
-local closeBtn = Instance.new("TextButton")
-closeBtn.Name = "CloseBtn"
-closeBtn.Size = UDim2.new(0, 30, 0, 22)
-closeBtn.Position = UDim2.new(1, -40, 0, 7)
-closeBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+local closeBtn = Instance.new("TextButton", f)
+closeBtn.Size = UDim2.new(0,24,0,24)
+closeBtn.Position = UDim2.new(1,-30,0,6)
+closeBtn.BackgroundColor3 = Color3.fromRGB(160,30,30)
 closeBtn.Text = "X"
-closeBtn.Font = Enum.Font.GothamBold
-closeBtn.TextSize = 16
-closeBtn.TextColor3 = Color3.fromRGB(255,255,255)
-closeBtn.BorderSizePixel = 0
-closeBtn.Parent = titleBar
-closeBtn.MouseButton1Click:Connect(function()
-    screenGui:Destroy()
+closeBtn.TextColor3 = Color3.new(1,1,1)
+closeBtn.Font = Enum.Font.SourceSansBold
+closeBtn.TextSize = 14
+closeBtn.MouseButton1Click:Connect(function() g:Destroy() end)
+
+-- remote
+local remote
+pcall(function()
+	local r = game.ReplicatedStorage:FindFirstChild("BridgeNet2")
+	if r then remote = r:FindFirstChild("dataRemoteEvent")
+	end
+end)
+local bf = buffer and buffer.fromstring
+
+local STATE = {fast=false,spam1=false,spam2=false,shield=false,tp1=false,tp2=false}
+
+-- helper to toggle text
+local function setOnOff(btn, on)
+	if on then
+		btn.Text = btn.Text:match(" %(.*%)") and (btn.Text:gsub("%b()", "(ON)")) or (btn.Text.." (ON)")
+	else
+		btn.Text = btn.Text:match(" %(.*%)") and (btn.Text:gsub("%b()", "(OFF)")) or (btn.Text.." (OFF)")
+	end
+end
+
+-- Fast M1
+local btnFast = mkBtn("Fast M1 (OFF)", 10, 10)
+btnFast.MouseButton1Click:Connect(function()
+	STATE.fast = not STATE.fast
+	setOnOff(btnFast, STATE.fast)
+	if STATE.fast then
+		task.spawn(function()
+			while STATE.fast do
+				task.wait(0.1)
+				if remote and bf then
+					pcall(function()
+						remote:FireServer({{bf("\019\000\000\0000201000113686372022\000")},"\019"})
+					end)
+				end
+			end
+		end)
+	end
 end)
 
--- Left tab panel (danh sách nút - luôn hiển thị ON/OFF)
-local tabPanel = Instance.new("Frame")
-tabPanel.Name = "TabPanel"
-tabPanel.Size = UDim2.new(0, 180, 1, -36)
-tabPanel.Position = UDim2.new(0, 0, 0, 36)
-tabPanel.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-tabPanel.BorderSizePixel = 0
-tabPanel.Parent = mainFrame
-
--- Right info panel (mô tả / ghi chú)
-local infoPanel = Instance.new("Frame")
-infoPanel.Name = "InfoPanel"
-infoPanel.Size = UDim2.new(1, -180, 1, -36)
-infoPanel.Position = UDim2.new(0, 180, 0, 36)
-infoPanel.BackgroundColor3 = Color3.fromRGB(38, 38, 38)
-infoPanel.BorderSizePixel = 0
-infoPanel.Parent = mainFrame
-
-local infoTitle = Instance.new("TextLabel")
-infoTitle.Name = "InfoTitle"
-infoTitle.Size = UDim2.new(1, -20, 0, 26)
-infoTitle.Position = UDim2.new(0, 10, 0, 10)
-infoTitle.BackgroundTransparency = 1
-infoTitle.Text = "Thông tin chức năng"
-infoTitle.Font = Enum.Font.GothamBold
-infoTitle.TextSize = 14
-infoTitle.TextColor3 = Color3.fromRGB(255,255,255)
-infoTitle.TextXAlignment = Enum.TextXAlignment.Left
-infoTitle.Parent = infoPanel
-
-local infoText = Instance.new("TextLabel")
-infoText.Name = "InfoText"
-infoText.Size = UDim2.new(1, -20, 1, -50)
-infoText.Position = UDim2.new(0, 10, 0, 40)
-infoText.BackgroundTransparency = 1
-infoText.Text = "Chọn một tính năng ở bên trái để xem mô tả nhanh. Mỗi nút là bật/tắt (ON/OFF)."
-infoText.Font = Enum.Font.Gotham
-infoText.TextSize = 14
-infoText.TextColor3 = Color3.fromRGB(210,210,210)
-infoText.TextWrapped = true
-infoText.TextYAlignment = Enum.TextYAlignment.Top
-infoText.Parent = infoPanel
-
--- Helper: tạo nút tab (left) với label trạng thái
-local function createFeatureButton(displayName, yIndex)
-    local container = Instance.new("Frame")
-    container.Name = displayName .. "_Container"
-    container.Size = UDim2.new(1, -10, 0, 42)
-    container.Position = UDim2.new(0, 8, 0, 8 + (yIndex-1) * 48)
-    container.BackgroundTransparency = 1
-    container.Parent = tabPanel
-
-    local btn = Instance.new("TextButton")
-    btn.Name = displayName .. "_Btn"
-    btn.Size = UDim2.new(1, -80, 1, 0)
-    btn.Position = UDim2.new(0, 0, 0, 0)
-    btn.BackgroundColor3 = Color3.fromRGB(60,60,60)
-    btn.Text = displayName
-    btn.Font = Enum.Font.GothamSemibold
-    btn.TextSize = 14
-    btn.TextColor3 = Color3.fromRGB(255,255,255)
-    btn.BorderSizePixel = 0
-    btn.Parent = container
-
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Name = displayName .. "_Status"
-    statusLabel.Size = UDim2.new(0, 64, 1, 0)
-    statusLabel.Position = UDim2.new(1, -70, 0, 0)
-    statusLabel.BackgroundColor3 = Color3.fromRGB(0,170,0)
-    statusLabel.Text = "OFF"
-    statusLabel.Font = Enum.Font.GothamBold
-    statusLabel.TextSize = 14
-    statusLabel.TextColor3 = Color3.fromRGB(255,255,255)
-    statusLabel.BorderSizePixel = 0
-    statusLabel.Parent = container
-
-    return btn, statusLabel, container
-end
-
--- Tạo nút cho từng module (liệt kê theo yêu cầu)
-local btnFastM1, statusFastM1 = createFeatureButton("Fast M1", 1)
-local btnSpamM1, statusSpamM1 = createFeatureButton("Spam M1", 2)
-local btnSpamM2, statusSpamM2 = createFeatureButton("Spam M2", 3)
-local btnShield, statusShield = createFeatureButton("Shield", 4)
-local btnTele, statusTele = createFeatureButton("Tele (TP Buttons)", 5)
-local btnTP1, statusTP1 = createFeatureButton("TP1 - Lock Pos", 6)
-local btnTP2, statusTP2 = createFeatureButton("TP2 - Lock Pos", 7)
-
--- Small note under tabs
-local note = Instance.new("TextLabel")
-note.Name = "Note"
-note.Size = UDim2.new(1, -16, 0, 36)
-note.Position = UDim2.new(0, 8, 1, -44)
-note.BackgroundTransparency = 1
-note.Text = "Ghi chú: Anti-Kick & Anti-AFK đã bật ẩn. Thay đổi trạng thái sẽ gửi remote (nếu có)."
-note.Font = Enum.Font.Gotham
-note.TextSize = 12
-note.TextColor3 = Color3.fromRGB(170,170,170)
-note.TextWrapped = true
-note.Parent = tabPanel
-
--- ============================
--- // 5) FUNCTIONAL MODULES (đầy đủ, rõ ràng)
--- ============================
-
--- 5.1 Fast M1 (spam nhanh, tốc độ nhỏ)
-do
-    local remote = getBridgeRemote()
-    -- args như bạn cung cấp ban đầu
-    local fastArgs = {{{buffer.fromstring("\019\000\000\0000201000113686372022\000")},"\019"}}
-    local delay = 0.1 -- mặc định, có thể sửa
-    local running = false
-
-    -- vòng lặp spam nền (có kiểm tra biến running)
-    task.spawn(function()
-        while true do
-            task.wait(delay)
-            if running then
-                pcall(function()
-                    if remote then
-                        remote:FireServer(unpack(fastArgs))
-                    end
-                end)
-            end
-        end
-    end)
-
-    -- cập nhật UI trạng thái
-    local function updateUI()
-        if running then
-            statusFastM1.Text = "ON"
-            statusFastM1.BackgroundColor3 = Color3.fromRGB(200,50,50)
-            btnFastM1.Text = "Fast M1 (Đang ON)"
-        else
-            statusFastM1.Text = "OFF"
-            statusFastM1.BackgroundColor3 = Color3.fromRGB(0,170,0)
-            btnFastM1.Text = "Fast M1 (OFF)"
-        end
-    end
-    updateUI()
-
-    -- nút bấm
-    btnFastM1.MouseButton1Click:Connect(function()
-        running = not running
-        STATE.fastM1 = running
-        updateUI()
-    end)
-end
-
--- 5.2 Spam M1 (tốc độ chậm hơn)
-do
-    local remote = getBridgeRemote()
-    local spamArgs = {{{buffer.fromstring("\019\000\000\0000201000113686372022\000")},"\019"}}
-    local delay = 0.35
-    local running = false
-
-    task.spawn(function()
-        while true do
-            task.wait(delay)
-            if running then
-                pcall(function()
-                    if remote then
-                        remote:FireServer(unpack(spamArgs))
-                    end
-                end)
-            end
-        end
-    end)
-
-    local function updateUI()
-        if running then
-            statusSpamM1.Text = "ON"
-            statusSpamM1.BackgroundColor3 = Color3.fromRGB(200,50,50)
-            btnSpamM1.Text = "Spam M1 (Đang ON)"
-        else
-            statusSpamM1.Text = "OFF"
-            statusSpamM1.BackgroundColor3 = Color3.fromRGB(0,170,0)
-            btnSpamM1.Text = "Spam M1 (OFF)"
-        end
-    end
-    updateUI()
-
-    btnSpamM1.MouseButton1Click:Connect(function()
-        running = not running
-        STATE.spamM1 = running
-        updateUI()
-    end)
-end
-
--- 5.3 Spam M2 (khác mã buffer)
-do
-    local remote = getBridgeRemote()
-    local running = false
-    local delay = 0.65
-
-    task.spawn(function()
-        while true do
-            task.wait(delay)
-            if running then
-                pcall(function()
-                    if remote then
-                        local args = {{{buffer.fromstring("\019\000\000\0000201100101186595482\000")},"\019"}}
-                        remote:FireServer(unpack(args))
-                    end
-                end)
-            end
-        end
-    end)
-
-    local function updateUI()
-        if running then
-            statusSpamM2.Text = "ON"
-            statusSpamM2.BackgroundColor3 = Color3.fromRGB(200,50,50)
-            btnSpamM2.Text = "Spam M2 (Đang ON)"
-        else
-            statusSpamM2.Text = "OFF"
-            statusSpamM2.BackgroundColor3 = Color3.fromRGB(0,170,0)
-            btnSpamM2.Text = "Spam M2 (OFF)"
-        end
-    end
-    updateUI()
-
-    btnSpamM2.MouseButton1Click:Connect(function()
-        running = not running
-        STATE.spamM2 = running
-        updateUI()
-    end)
-end
-
--- 5.4 Shield (gửi remote true/false giữ nguyên code byte)
-do
-    local remote = getBridgeRemote()
-    local isOn = false
-
-    local function doSend(v)
-        pcall(function()
-            if remote then
-                local args = {{v, "\024"}}
-                remote:FireServer(unpack(args))
-            end
-        end)
-    end
-
-    local function updateUI()
-        if isOn then
-            statusShield.Text = "ON"
-            statusShield.BackgroundColor3 = Color3.fromRGB(200,50,50)
-            btnShield.Text = "Shield (Bật)"
-        else
-            statusShield.Text = "OFF"
-            statusShield.BackgroundColor3 = Color3.fromRGB(0,170,0)
-            btnShield.Text = "Shield (Tắt)"
-        end
-    end
-    updateUI()
-
-    btnShield.MouseButton1Click:Connect(function()
-        isOn = not isOn
-        STATE.shield = isOn
-        updateUI()
-        doSend(isOn)
-    end)
-end
-
--- 5.5 Tele (TP Cổng 1 & Cổng 2) - đây là nút nhấn 1 lần, không giữ trạng thái
-do
-    local locations = {
-        ["Cổng 1"] = Vector3.new(18.86713409423828, 0.37274569272994995, -114.86202239990234),
-        ["Cổng 2"] = Vector3.new(18.37334884643555, 0.37274569272994995, -140.72775268554688)
-    }
-
-    -- Mình sẽ tạo 2 nút TP ngay khi nhấn sẽ thực hiện teleport; status tele chỉ hiển thị "Ready"
-    statusTele.Text = "Ready"
-    statusTele.BackgroundColor3 = Color3.fromRGB(100,100,100)
-    btnTele.Text = "Tele (Nhấn để mở tùy chọn)"
-
-    -- Khi nhấn, show 2 nút tạm trên panel phải (infoPanel) để nhấn TP
-    btnTele.MouseButton1Click:Connect(function()
-        -- tạo 2 nút tạm ở infoPanel (nếu đã tồn tại thì xóa rồi tạo lại)
-        for _, c in pairs(infoPanel:GetChildren()) do
-            if c.Name == "TempTPBtn" or c.Name == "TempTPFrame" or c.Name == "TempTPLabel" then
-                c:Destroy()
-            end
-        end
-
-        local tempFrame = Instance.new("Frame")
-        tempFrame.Name = "TempTPFrame"
-        tempFrame.Size = UDim2.new(1, -40, 0, 120)
-        tempFrame.Position = UDim2.new(0, 20, 0, 80)
-        tempFrame.BackgroundTransparency = 1
-        tempFrame.Parent = infoPanel
-
-        local label = Instance.new("TextLabel")
-        label.Name = "TempTPLabel"
-        label.Size = UDim2.new(1, 0, 0, 24)
-        label.Position = UDim2.new(0, 0, 0, 0)
-        label.BackgroundTransparency = 1
-        label.Text = "Teleport nhanh — chọn cổng:"
-        label.Font = Enum.Font.GothamBold
-        label.TextSize = 14
-        label.TextColor3 = Color3.fromRGB(255,255,255)
-        label.TextXAlignment = Enum.TextXAlignment.Left
-        label.Parent = tempFrame
-
-        local tp1 = Instance.new("TextButton")
-        tp1.Name = "TempTPBtn"
-        tp1.Size = UDim2.new(0, 160, 0, 36)
-        tp1.Position = UDim2.new(0, 0, 0, 36)
-        tp1.Text = "TP Cổng 1"
-        tp1.Font = Enum.Font.Gotham
-        tp1.TextSize = 14
-        tp1.BackgroundColor3 = Color3.fromRGB(70,130,255)
-        tp1.TextColor3 = Color3.fromRGB(255,255,255)
-        tp1.Parent = tempFrame
-
-        local tp2 = Instance.new("TextButton")
-        tp2.Name = "TempTPBtn"
-        tp2.Size = UDim2.new(0, 160, 0, 36)
-        tp2.Position = UDim2.new(0, 180, 0, 36)
-        tp2.Text = "TP Cổng 2"
-        tp2.Font = Enum.Font.Gotham
-        tp2.TextSize = 14
-        tp2.BackgroundColor3 = Color3.fromRGB(70,255,130)
-        tp2.TextColor3 = Color3.fromRGB(255,255,255)
-        tp2.Parent = tempFrame
-
-        local function doTeleport(pos)
-            local char = player.Character or player.CharacterAdded:Wait()
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                hrp.CFrame = CFrame.new(pos + Vector3.new(0,5,0))
-            end
-        end
-
-        tp1.MouseButton1Click:Connect(function()
-            doTeleport(locations["Cổng 1"])
-        end)
-        tp2.MouseButton1Click:Connect(function()
-            doTeleport(locations["Cổng 2"])
-        end)
-    end)
-end
-
--- 5.6 TP1 - Khóa vị trí cố định (target cụ thể)
-do
-    local targetPos = Vector3.new(40.00, 3.63, -130.14)
-    local lock = false
-    local loopCon = nil
-
-    local function updateUI()
-        if lock then
-            statusTP1.Text = "ON"
-            statusTP1.BackgroundColor3 = Color3.fromRGB(200,50,50)
-            btnTP1.Text = "TP1 - Lock (Đang ON)"
-        else
-            statusTP1.Text = "OFF"
-            statusTP1.BackgroundColor3 = Color3.fromRGB(0,170,0)
-            btnTP1.Text = "TP1 - Lock (OFF)"
-        end
-    end
-    updateUI()
-
-    -- Heartbeat giữ vị trí
-    task.spawn(function()
-        while true do
-            task.wait()
-            if lock then
-                local char = player.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    local hrp = char.HumanoidRootPart
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    -- giữ ở target, reset velocity
-                    hrp.Velocity = Vector3.new(0,0,0)
-                    hrp.RotVelocity = Vector3.new(0,0,0)
-                    hrp.CFrame = CFrame.new(targetPos)
-                    if hum then
-                        hum.WalkSpeed = 0
-                        hum.JumpPower = 0
-                    end
-                end
-            end
-        end
-    end)
-
-    btnTP1.MouseButton1Click:Connect(function()
-        lock = not lock
-        STATE.tp1_lock = lock
-        updateUI()
-        if lock then
-            StarterGui:SetCore("SendNotification", {
-                Title = "⚓ TP1: Đã khóa vị trí",
-                Text = string.format("X: %.2f Y: %.2f Z: %.2f", targetPos.X, targetPos.Y, targetPos.Z),
-                Duration = 3
-            })
-        else
-            -- restore humanoid
-            pcall(function()
-                local char = player.Character
-                if char then
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum then
-                        hum.WalkSpeed = 16
-                        hum.JumpPower = 50
-                    end
-                end
-            end)
-            StarterGui:SetCore("SendNotification", {
-                Title = "✅ TP1: Đã mở khóa",
-                Text = "Bạn có thể di chuyển bình thường.",
-                Duration = 3
-            })
-        end
-    end)
-end
-
--- 5.7 TP2 - Khóa vị trí + giữ hướng nhìn
-do
-    local targetPos = Vector3.new(42.29, 3.63, -132.49)
-    local lock = false
-    local savedLookVector = nil
-
-    local function updateUI()
-        if lock then
-            statusTP2.Text = "ON"
-            statusTP2.BackgroundColor3 = Color3.fromRGB(200,50,50)
-            btnTP2.Text = "TP2 - Lock (Đang ON)"
-        else
-            statusTP2.Text = "OFF"
-            statusTP2.BackgroundColor3 = Color3.fromRGB(0,170,0)
-            btnTP2.Text = "TP2 - Lock (OFF)"
-        end
-    end
-    updateUI()
-
-    task.spawn(function()
-        while true do
-            task.wait()
-            if lock then
-                local char = player.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    local hrp = char.HumanoidRootPart
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if savedLookVector then
-                        hrp.CFrame = CFrame.new(targetPos, targetPos + savedLookVector)
-                    else
-                        hrp.CFrame = CFrame.new(targetPos)
-                    end
-                    hrp.Velocity = Vector3.new(0,0,0)
-                    hrp.RotVelocity = Vector3.new(0,0,0)
-                    if hum then
-                        hum.WalkSpeed = 0
-                        hum.JumpPower = 0
-                    end
-                end
-            end
-        end
-    end)
-
-    btnTP2.MouseButton1Click:Connect(function()
-        lock = not lock
-        STATE.tp2_lock = lock
-        if lock then
-            -- lưu hướng nhìn hiện tại nếu có character
-            pcall(function()
-                local char = player.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    savedLookVector = char.HumanoidRootPart.CFrame.LookVector
-                end
-            end)
-        else
-            savedLookVector = nil
-            -- restore humanoid
-            pcall(function()
-                local char = player.Character
-                if char then
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum then
-                        hum.WalkSpeed = 16
-                        hum.JumpPower = 50
-                    end
-                end
-            end)
-        end
-        updateUI()
-        if lock then
-            StarterGui:SetCore("SendNotification", {
-                Title = "⚓ TP2: Đã khóa vị trí",
-                Text = "Đã lưu hướng nhìn hiện tại.",
-                Duration = 3
-            })
-        else
-            StarterGui:SetCore("SendNotification", {
-                Title = "✅ TP2: Đã mở khóa",
-                Text = "Bạn có thể di chuyển và xoay hướng như bình thường.",
-                Duration = 3
-            })
-        end
-    end)
-end
-
--- ============================
--- // 6) UI - MOUSE HOVER / INFO (khi hover nút hiện mô tả ở info panel)
--- ============================
-local DESCRIPTIONS = {
-    ["Fast M1"] = "Fast M1: Spam M1 cực nhanh. Sử dụng buffer code X (như trong script gốc). Điều chỉnh tốc độ trong code (delay = 0.1).",
-    ["Spam M1"] = "Spam M1: Spam M1 ở tốc độ trung bình (delay = 0.35).",
-    ["Spam M2"] = "Spam M2: Spam mã M2 khác (buffer khác). Delay = 0.65.",
-    ["Shield"] = "Shield: Gửi true/false tới remote với mã byte \\024. Dùng để bật/tắt shield trong game (tùy server).",
-    ["Tele (TP Buttons)"] = "Tele: Mở danh sách TP Cổng 1 / Cổng 2 trong khung bên phải. Nhấn để teleport ngay lập tức.",
-    ["TP1 - Lock Pos"] = "TP1: Khóa vị trí nhân vật vào một tọa độ cố định và vô hiệu hoá di chuyển/jump. Nhấn để bật/tắt.",
-    ["TP2 - Lock Pos"] = "TP2: Khóa vị trí + giữ hướng nhìn hiện tại. Nhấn để bật/tắt.",
-}
-
--- Liên kết hover
-local mapping = {
-    ["Fast M1"] = btnFastM1,
-    ["Spam M1"] = btnSpamM1,
-    ["Spam M2"] = btnSpamM2,
-    ["Shield"] = btnShield,
-    ["Tele (TP Buttons)"] = btnTele,
-    ["TP1 - Lock Pos"] = btnTP1,
-    ["TP2 - Lock Pos"] = btnTP2,
-}
-
-for name, btn in pairs(mapping) do
-    btn.MouseEnter:Connect(function()
-        infoText.Text = DESCRIPTIONS[name] or ("Mô tả cho " .. name)
-    end)
-    btn.MouseLeave:Connect(function()
-        infoText.Text = "Chọn một tính năng ở bên trái để xem mô tả nhanh. Mỗi nút là bật/tắt (ON/OFF)."
-    end)
-end
-
--- ============================
--- // 7) SAFETY: khi GUI bị destroy, tắt mọi trạng thái giữ
--- ============================
-screenGui.Destroying:Connect(function()
-    pcall(function()
-        -- restore humanoid mặc định
-        local char = player.Character
-        if char then
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum.WalkSpeed = 16
-                hum.JumpPower = 50
-            end
-        end
-    end)
+-- Spam M1
+local btnSpam1 = mkBtn("Spam M1 (OFF)", 10, 48)
+btnSpam1.MouseButton1Click:Connect(function()
+	STATE.spam1 = not STATE.spam1
+	setOnOff(btnSpam1, STATE.spam1)
+	if STATE.spam1 then
+		task.spawn(function()
+			while STATE.spam1 do
+				task.wait(0.35)
+				if remote and bf then
+					pcall(function()
+						remote:FireServer({{bf("\019\000\000\0000201000113686372022\000")},"\019"})
+					end)
+				end
+			end
+		end)
+	end
 end)
 
--- ============================
--- // 8) KẾT THÚC / IN RA LOG
--- ============================
-print("[✅ Game Hacker Multi Tool - FULL] GUI đã tải. Các tính năng: Fast M1, Spam M1, Spam M2, Shield, Tele, TP1, TP2. Anti-Kick & Anti-AFK đã cố gắng bật (nếu executor hỗ trợ).")
+-- Spam M2
+local btnSpam2 = mkBtn("Spam M2 (OFF)", 10, 86)
+btnSpam2.MouseButton1Click:Connect(function()
+	STATE.spam2 = not STATE.spam2
+	setOnOff(btnSpam2, STATE.spam2)
+	if STATE.spam2 then
+		task.spawn(function()
+			while STATE.spam2 do
+				task.wait(0.65)
+				if remote and bf then
+					pcall(function()
+						remote:FireServer({{bf("\019\000\000\0000201100101186595482\000")},"\019"})
+					end)
+				end
+			end
+		end)
+	end
+end)
 
--- (END OF SCRIPT)
+-- Shield
+local btnShield = mkBtn("Shield (OFF)", 10, 124)
+btnShield.MouseButton1Click:Connect(function()
+	STATE.shield = not STATE.shield
+	setOnOff(btnShield, STATE.shield)
+	if remote then
+		pcall(function() remote:FireServer({STATE.shield, "\024"}) end)
+	end
+end)
+
+-- Tele frame + buttons
+local teleLabel = Instance.new("TextLabel", f)
+teleLabel.Size = UDim2.new(0,200,0,18)
+teleLabel.Position = UDim2.new(0,10,0,162)
+teleLabel.BackgroundTransparency = 1
+teleLabel.Text = "Tele"
+teleLabel.TextColor3 = Color3.fromRGB(200,200,200)
+teleLabel.Font = Enum.Font.SourceSansBold
+teleLabel.TextSize = 13
+teleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local tbtn1 = Instance.new("TextButton", f)
+tbtn1.Size = UDim2.new(0,96,0,28)
+tbtn1.Position = UDim2.new(0,10,0,184)
+tbtn1.Text = "Cổng 1"
+tbtn1.BackgroundColor3 = Color3.fromRGB(70,130,255)
+tbtn1.TextColor3 = Color3.new(1,1,1)
+
+local tbtn2 = Instance.new("TextButton", f)
+tbtn2.Size = UDim2.new(0,96,0,28)
+tbtn2.Position = UDim2.new(0,114,0,184)
+tbtn2.Text = "Cổng 2"
+tbtn2.BackgroundColor3 = Color3.fromRGB(70,200,120)
+tbtn2.TextColor3 = Color3.new(1,1,1)
+
+local loc = {
+	["Cổng 1"] = Vector3.new(18.86713409423828, 0.37274569272994995, -114.86202239990234),
+	["Cổng 2"] = Vector3.new(18.37334884643555, 0.37274569272994995, -140.72775268554688)
+}
+local function doTp(v)
+	local chr = p.Character or p.CharacterAdded:Wait()
+	local hrp = chr:FindFirstChild("HumanoidRootPart")
+	if hrp then hrp.CFrame = CFrame.new(v + Vector3.new(0,5,0)) end
+end
+tbtn1.MouseButton1Click:Connect(function() doTp(loc["Cổng 1"]) end)
+tbtn2.MouseButton1Click:Connect(function() doTp(loc["Cổng 2"]) end)
+
+-- TP1 Lock
+local btnTP1 = mkBtn("TP1 Lock (OFF)", 10, 222)
+btnTP1.MouseButton1Click:Connect(function()
+	STATE.tp1 = not STATE.tp1
+	setOnOff(btnTP1, STATE.tp1)
+	if STATE.tp1 then
+		local pos = Vector3.new(40,3.63,-130.14)
+		task.spawn(function()
+			while STATE.tp1 do
+				task.wait()
+				local c = p.Character
+				if c and c:FindFirstChild("HumanoidRootPart") then
+					local h = c.HumanoidRootPart
+					h.Velocity = Vector3.new()
+					h.CFrame = CFrame.new(pos)
+				end
+			end
+		end)
+	end
+end)
+
+-- TP2 Lock
+local btnTP2 = mkBtn("TP2 Lock (OFF)", 10, 260)
+btnTP2.MouseButton1Click:Connect(function()
+	STATE.tp2 = not STATE.tp2
+	setOnOff(btnTP2, STATE.tp2)
+	if STATE.tp2 then
+		local pos = Vector3.new(42.29,3.63,-132.49)
+		local look
+		pcall(function() look = p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.HumanoidRootPart.CFrame.LookVector end)
+		task.spawn(function()
+			while STATE.tp2 do
+				task.wait()
+				local c = p.Character
+				if c and c:FindFirstChild("HumanoidRootPart") then
+					local h = c.HumanoidRootPart
+					h.Velocity = Vector3.new()
+					if look then
+						h.CFrame = CFrame.new(pos, pos + look)
+					else
+						h.CFrame = CFrame.new(pos)
+					end
+				end
+			end
+		end)
+	end
+end)
