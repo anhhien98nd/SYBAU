@@ -4,6 +4,7 @@ local pg = p:WaitForChild("PlayerGui")
 
 local g = Instance.new("ScreenGui")
 g.Name = "GH_Mini"
+g.ResetOnSpawn = false -- ✅ Giữ GUI sau khi reset nhân vật
 g.Parent = pg
 
 local f = Instance.new("Frame")
