@@ -1,0 +1,97 @@
+-- ⚙️ Auto TP2 Lock (Optimized + Safe Version)
+-- Bật tại giây 10, tắt tại giây 134 (tổng)
+-- Áp dụng nguyên tắc nhẹ CPU, có cleanup, và an toàn
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local p = Players.LocalPlayer
+
+-- ⚙️ Cấu hình
+local START_DELAY = 10       -- Thời gian đợi trước khi bật (giây)
+local STOP_AFTER = 134       -- Tổng thời gian hoạt động (giây)
+local LOCK_POS = Vector3.new(42.29, 3.63, -132.49)
+local UPDATE_INTERVAL = 0.05 -- Tần suất cập nhật (giây)
+
+-- ⚙️ Trạng thái và quản lý tài nguyên
+local TP2Lock = {
+	active = false,
+	thread = nil,
+	startTime = tick(),
+}
+
+-- 🧹 Hàm cleanup an toàn
+function TP2Lock:Stop()
+	if not self.active then return end
+	self.active = false
+
+	if self.thread and coroutine.close then
+		pcall(function() coroutine.close(self.thread) end)
+	end
+	self.thread = nil
+
+	pcall(function() collectgarbage("collect") end)
+	print("[TP2 Lock] 🔴 Dừng và dọn dẹp xong.")
+end
+
+-- ⚙️ Hàm bật TP2 Lock
+local function StartTP2Lock()
+	if TP2Lock.active then
+		warn("[TP2 Lock] Đã bật rồi.")
+		return
+	end
+
+	TP2Lock.active = true
+	TP2Lock.startTime = tick()
+	print(string.format("[TP2 Lock] 🟢 Bật TP2 Lock tại giây %.1f", START_DELAY))
+
+	local function getHRP()
+		local char = p.Character
+		return char and char:FindFirstChild("HumanoidRootPart")
+	end
+
+	-- Lưu hướng nhìn ban đầu (tránh cập nhật liên tục)
+	local lookVector
+	pcall(function()
+		local hrp = getHRP()
+		if hrp then
+			lookVector = hrp.CFrame.LookVector
+		end
+	end)
+
+	-- Thread giữ lock nhẹ nhàng
+	TP2Lock.thread = coroutine.create(function()
+		while TP2Lock.active do
+			local hrp = getHRP()
+			if hrp then
+				pcall(function()
+					hrp.Velocity = Vector3.zero
+					local targetCF = lookVector
+						and CFrame.new(LOCK_POS, LOCK_POS + lookVector)
+						or CFrame.new(LOCK_POS)
+					hrp.CFrame = targetCF
+				end)
+			end
+			task.wait(UPDATE_INTERVAL)
+		end
+	end)
+
+	task.spawn(function()
+		coroutine.resume(TP2Lock.thread)
+	end)
+
+	-- Tự dừng sau STOP_AFTER giây tổng
+	task.delay(STOP_AFTER, function()
+		if TP2Lock.active then
+			print(string.format("[TP2 Lock] 🔴 Tắt TP2 Lock tại giây %.1f (tổng)", STOP_AFTER))
+			TP2Lock:Stop()
+		end
+	end)
+end
+
+-- 🔄 Chạy script sau START_DELAY
+task.delay(START_DELAY, StartTP2Lock)
+
+-- 🛑 Cho phép dừng thủ công
+getgenv().StopTP2Lock = function()
+	TP2Lock:Stop()
+end
