@@ -1,0 +1,101 @@
+-- ⚙️ Auto TP1 Lock (Optimized + Safe Version)
+-- Bật tại giây 10, tắt tại giây 134 tổng
+-- Áp dụng nguyên tắc: nhẹ CPU, có cleanup, không leak
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local p = Players.LocalPlayer
+
+-- Cấu hình
+local START_DELAY = 10      -- giây bật
+local STOP_AFTER = 134      -- tổng thời gian
+local LOCK_POS = Vector3.new(40, 3.63, -130.14)
+local UPDATE_INTERVAL = 0.05 -- delay giữa mỗi lần lock (giảm CPU)
+
+-- Trạng thái quản lý
+local TP1Lock = {
+	active = false,
+	conn = nil,
+	thread = nil,
+	startTime = tick(),
+}
+
+-- Hàm cleanup (dừng mọi thứ)
+function TP1Lock:Stop()
+	if not self.active then return end
+	self.active = false
+
+	if self.conn then
+		pcall(function() self.conn:Disconnect() end)
+		self.conn = nil
+	end
+
+	if self.thread and coroutine.close then
+		pcall(function() coroutine.close(self.thread) end)
+		self.thread = nil
+	end
+
+	collectgarbage("collect")
+	print("[TP1 Lock] 🔴 Dừng và dọn dẹp xong.")
+end
+
+-- Hàm chính (chạy lock)
+local function StartTP1Lock()
+	if TP1Lock.active then
+		warn("[TP1 Lock] Đã bật rồi.")
+		return
+	end
+
+	TP1Lock.active = true
+	TP1Lock.startTime = tick()
+
+	print(string.format("[TP1 Lock] 🟢 Bật TP1 Lock tại giây %.1f", START_DELAY))
+
+	local function getHRP()
+		local char = p.Character
+		return char and char:FindFirstChild("HumanoidRootPart")
+	end
+
+	-- Xác định hướng nhìn ban đầu
+	local lookVector
+	pcall(function()
+		local hrp = getHRP()
+		if hrp then
+			lookVector = hrp.CFrame.LookVector
+		end
+	end)
+
+	-- Thread giữ lock
+	TP1Lock.thread = coroutine.create(function()
+		while TP1Lock.active do
+			local hrp = getHRP()
+			if hrp then
+				pcall(function()
+					hrp.Velocity = Vector3.zero
+					local targetCFrame = lookVector
+						and CFrame.new(LOCK_POS, LOCK_POS + lookVector)
+						or CFrame.new(LOCK_POS)
+					hrp.CFrame = targetCFrame
+				end)
+			end
+			task.wait(UPDATE_INTERVAL)
+		end
+	end)
+	coroutine.resume(TP1Lock.thread)
+
+	-- Tự tắt sau STOP_AFTER giây tổng
+	task.delay(STOP_AFTER, function()
+		if TP1Lock.active then
+			print(string.format("[TP1 Lock] 🔴 Tắt TP1 Lock tại giây %.1f tổng", STOP_AFTER))
+			TP1Lock:Stop()
+		end
+	end)
+end
+
+-- Bắt đầu sau START_DELAY
+task.delay(START_DELAY, StartTP1Lock)
+
+-- Cho phép dừng thủ công
+getgenv().StopTP1Lock = function()
+	TP1Lock:Stop()
+end
