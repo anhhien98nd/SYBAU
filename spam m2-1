@@ -1,0 +1,115 @@
+-- ⚙️ Auto Spam M2 (Lightweight Optimized)
+-- Áp dụng nguyên tắc "Không làm nặng" - 1 thread duy nhất, tối ưu CPU & RAM
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- ⏱️ Thời gian giữa mỗi lần gửi
+local FIRE_INTERVAL = 0.65
+
+-- 🕒 Các khung thời gian bật/tắt spam
+local schedule = {
+    {13, 22},
+    {32, 41},
+    {51, 54},
+    {127, 133},
+}
+
+-- 🔍 Tìm remote: ReplicatedStorage -> BridgeNet2 -> dataRemoteEvent
+local remote
+pcall(function()
+    local rs = ReplicatedStorage
+    local bridge = rs:FindFirstChild("BridgeNet2")
+    if bridge then
+        remote = bridge:FindFirstChild("dataRemoteEvent")
+    end
+    if not remote then
+        for _, v in ipairs(rs:GetDescendants()) do
+            if v.Name == "dataRemoteEvent" then
+                remote = v
+                break
+            end
+        end
+    end
+end)
+
+-- 🧩 buffer handler (fallback)
+local bf = (type(buffer) == "table" and type(buffer.fromstring) == "function")
+    and buffer.fromstring
+    or function(s) return s end
+
+local payload_str = "\019\000\000\0000201100101186595482\000"
+
+-- 🧠 Hàm gửi tín hiệu an toàn
+local function safeFire()
+    if not remote then
+        if not safeFire._warned then
+            safeFire._warned = true
+            warn("[Auto Spam M2] ⚠️ Không tìm thấy remote dataRemoteEvent.")
+        end
+        return
+    end
+    pcall(function()
+        remote:FireServer({ { bf(payload_str) }, "\019" })
+    end)
+end
+
+-- ⚙️ Controller quản lý spam
+local M2Controller = {
+    tick0 = tick(),
+    active = false,
+    running = true,
+}
+
+-- 🧹 Cleanup
+function M2Controller:Stop()
+    self.running = false
+    self.active = false
+    collectgarbage("collect")
+    print("[Auto Spam M2] 🛑 Dừng & dọn dẹp hoàn tất.")
+end
+
+-- ⚙️ Kiểm tra xem hiện tại có trong khung thời gian nào không
+local function isActiveAt(timeSec)
+    for _, win in ipairs(schedule) do
+        if timeSec >= win[1] and timeSec < win[2] then
+            return true
+        end
+    end
+    return false
+end
+
+-- 🧵 Luồng chính (1 thread duy nhất)
+task.spawn(function()
+    print(("[Auto Spam M2] 🟢 Bắt đầu (tổng %d khung)."):format(#schedule))
+    local tick0 = M2Controller.tick0
+
+    while M2Controller.running do
+        local t = tick() - tick0
+        local shouldActive = isActiveAt(t)
+
+        -- Chỉ bật/tắt khi cần
+        if shouldActive and not M2Controller.active then
+            M2Controller.active = true
+            print(("[Auto Spam M2] 🔛 BẬT tại %.2fs"):format(t))
+        elseif not shouldActive and M2Controller.active then
+            M2Controller.active = false
+            print(("[Auto Spam M2] 🔴 TẮT tại %.2fs"):format(t))
+        end
+
+        -- Nếu đang bật thì gửi tín hiệu đều đặn
+        if M2Controller.active then
+            safeFire()
+        end
+
+        task.wait(FIRE_INTERVAL)
+        -- Dừng sau khi hết toàn bộ schedule
+        if t > (schedule[#schedule][2] + 1) then break end
+    end
+
+    M2Controller:Stop()
+end)
+
+-- 🛑 Dừng thủ công khi cần
+getgenv().StopAutoM2 = function()
+    M2Controller:Stop()
+end
