@@ -1,0 +1,73 @@
+-- ⚙️ Auto Teleport Cổng 2 (Safe & Optimized)
+-- Tự động dịch chuyển tới Cổng 2 sau 3 giây, giữ 1 giây, rồi tắt
+-- Áp dụng nguyên tắc: không làm nặng, có cleanup, không leak
+
+local Players = game:GetService("Players")
+local p = Players.LocalPlayer
+
+-- ⚙️ Cấu hình
+local START_DELAY = 3       -- chờ 3 giây trước khi teleport
+local HOLD_TIME = 1         -- giữ vị trí trong 1 giây
+local TELEPORT_POS = Vector3.new(18.3733, 0.3727, -140.7277)
+local HEIGHT_OFFSET = Vector3.new(0, 5, 0)
+
+-- ⚙️ Trạng thái quản lý
+local Teleport2 = {
+	active = false,
+	thread = nil,
+}
+
+-- 🧹 Cleanup function
+function Teleport2:Stop()
+	if not self.active then return end
+	self.active = false
+
+	if self.thread and coroutine.close then
+		pcall(function() coroutine.close(self.thread) end)
+	end
+	self.thread = nil
+
+	pcall(function() collectgarbage("collect") end)
+	print("[AUTO TP2] 🔴 Dừng teleport và dọn dẹp.")
+end
+
+-- ⚙️ Hàm thực thi teleport
+local function StartTeleport2()
+	if Teleport2.active then
+		warn("[AUTO TP2] Đang chạy — bỏ qua lần khởi động trùng.")
+		return
+	end
+	Teleport2.active = true
+
+	print("[AUTO TP2] ⏳ Sẽ dịch chuyển tới Cổng 2 sau " .. START_DELAY .. " giây...")
+
+	task.delay(START_DELAY, function()
+		if not Teleport2.active then return end
+
+		local chr = p.Character or p.CharacterAdded:Wait()
+		local hrp = chr:FindFirstChild("HumanoidRootPart")
+
+		if hrp then
+			pcall(function()
+				print("[AUTO TP2] 🟢 Dịch chuyển tới Cổng 2...")
+				hrp.Velocity = Vector3.zero
+				hrp.CFrame = CFrame.new(TELEPORT_POS + HEIGHT_OFFSET)
+			end)
+		else
+			warn("[AUTO TP2] ⚠️ Không tìm thấy HumanoidRootPart.")
+		end
+
+		-- Giữ trong HOLD_TIME rồi cleanup
+		task.wait(HOLD_TIME)
+		print("[AUTO TP2] 🔴 Dừng teleport sau " .. HOLD_TIME .. " giây.")
+		Teleport2:Stop()
+	end)
+end
+
+-- 🟢 Khởi động
+StartTeleport2()
+
+-- 🛑 Cho phép dừng thủ công
+getgenv().StopAutoTP2 = function()
+	Teleport2:Stop()
+end
