@@ -1,0 +1,132 @@
+-- ⚙️ Auto Spam M1 (Optimized + Lightweight)
+-- Gửi lệnh theo lịch, có cleanup, không làm nặng máy
+-- Áp dụng nguyên tắc: giới hạn thread, quản lý bộ nhớ, pcall an toàn
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local FIRE_INTERVAL = 0.4 -- khoảng cách giữa mỗi lần gửi (giây)
+local SCHEDULE = {
+    {61, 65},
+    {84, 88},
+    {106, 110},
+}
+
+-- 🧠 Tìm remote an toàn
+local remote
+pcall(function()
+    local bridge = ReplicatedStorage:FindFirstChild("BridgeNet2")
+    if bridge then
+        remote = bridge:FindFirstChild("dataRemoteEvent")
+    end
+    if not remote then
+        for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+            if v.Name == "dataRemoteEvent" then
+                remote = v
+                break
+            end
+        end
+    end
+end)
+
+-- 🧩 buffer.fromstring fallback
+local bf = (type(buffer) == "table" and type(buffer.fromstring) == "function")
+    and buffer.fromstring
+    or function(s) return s end
+
+local PAYLOAD = "\019\000\000\0000201000113686372022\000"
+
+-- 🧱 Trạng thái script
+local AutoSpam = {
+    active = false,
+    thread = nil,
+    startTick = tick(),
+}
+
+-- 🧹 Cleanup function
+function AutoSpam:Stop()
+    if not self.active then return end
+    self.active = false
+
+    if self.thread and coroutine.close then
+        pcall(function() coroutine.close(self.thread) end)
+    end
+    self.thread = nil
+
+    pcall(function() collectgarbage("collect") end)
+    print("[Auto Spam M1] 🔴 Đã dừng & dọn dẹp hoàn tất.")
+end
+
+-- ⚙️ Hàm gửi lệnh an toàn
+local function safeFire()
+    if not remote then
+        if not safeFire._warned then
+            warn("[Auto Spam M1] ⚠️ Không tìm thấy remote dataRemoteEvent.")
+            safeFire._warned = true
+        end
+        return
+    end
+    pcall(function()
+        remote:FireServer({ { bf(PAYLOAD) }, "\019" })
+    end)
+end
+
+-- ⚙️ Hàm chính: quản lý toàn bộ schedule trong 1 thread
+local function StartAutoSpam()
+    if AutoSpam.active then
+        warn("[Auto Spam M1] Đã chạy rồi — bỏ qua lần khởi động trùng.")
+        return
+    end
+    AutoSpam.active = true
+    AutoSpam.startTick = tick()
+
+    print("[Auto Spam M1] 🟢 Khởi động Auto Spam (tổng " .. #SCHEDULE .. " khoảng thời gian).")
+
+    AutoSpam.thread = coroutine.create(function()
+        for i, win in ipairs(SCHEDULE) do
+            if not AutoSpam.active then break end
+            local startSec, endSec = win[1], win[2]
+
+            if type(startSec) ~= "number" or type(endSec) ~= "number" or endSec <= startSec then
+                warn(("[Auto Spam M1] ⚠️ Schedule #%d không hợp lệ — bỏ qua."):format(i))
+                continue
+            end
+
+            local startTime = AutoSpam.startTick + startSec
+            local endTime = AutoSpam.startTick + endSec
+
+            local waitTime = startTime - tick()
+            if waitTime > 0 then
+                task.wait(waitTime)
+            end
+
+            if tick() >= endTime then
+                warn(("[Auto Spam M1] ⚠️ Schedule #%d trễ — bỏ qua."):format(i))
+                continue
+            end
+
+            print(("[Auto Spam M1] 🔹 BẮT ĐẦU #%d (%.1fs → %.1fs)"):format(i, startSec, endSec))
+
+            while AutoSpam.active and tick() < endTime do
+                safeFire()
+                task.wait(FIRE_INTERVAL)
+            end
+
+            print(("[Auto Spam M1] 🔸 KẾT THÚC #%d (%.1fs)").format(i, endSec))
+        end
+
+        AutoSpam:Stop()
+    end)
+
+    task.spawn(function()
+        coroutine.resume(AutoSpam.thread)
+    end)
+end
+
+-- 🟢 Khởi động ngay
+StartAutoSpam()
+
+-- 🛑 Dừng thủ công
+getgenv().StopAutoSpamM1 = function()
+    AutoSpam:Stop()
+end
