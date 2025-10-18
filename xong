@@ -7,7 +7,7 @@ local username = p and p.Name or "Unknown"
 local userScripts = {
 	["ikkopolconloli"] = {
 		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/star%20c%E1%BB%95ng%202"
-		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/lock%20v%E1%BB%8B%20tr%C3%AD%202",
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/lock%20vitri%202",
 		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/fastm-2",
 		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/shield%202",
 		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/spam%20m-2",
@@ -16,7 +16,7 @@ local userScripts = {
 
 	["noruo69"] = {
 		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/star%20c%E1%BB%95ng%201",
-		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/lock%20v%E1%BB%8B%20tr%C3%AD%201",
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/lock%20vitri%201",
 		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/spam%20m2-1",
 		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/spam%20m-1",
 		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/shield%201"
