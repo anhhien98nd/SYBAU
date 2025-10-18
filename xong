@@ -1,209 +1,57 @@
+-- 🌸 Auto Loader (2 user version)
 local Players = game:GetService("Players")
 local p = Players.LocalPlayer
-local pg = p:WaitForChild("PlayerGui")
+local username = p and p.Name or "Unknown"
 
-local g = Instance.new("ScreenGui")
-g.Name = "GH_Mini"
-g.ResetOnSpawn = false -- ✅ Giữ GUI sau khi reset nhân vật
-g.Parent = pg
+-- Danh sách người được phép & script tương ứng
+local userScripts = {
+	["ikkopolconloli"] = {
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/star%20c%E1%BB%95ng%202"
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/lock%20v%E1%BB%8B%20tr%C3%AD%202",
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/fastm-2",
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/shield%202",
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/spam%20m-2",
 
-local f = Instance.new("Frame")
-f.Size = UDim2.new(0,220,0,320)
-f.Position = UDim2.new(1,-230,1,-340) -- góc phải dưới
-f.BackgroundColor3 = Color3.fromRGB(40,40,40)
-f.BorderSizePixel = 0
-f.Parent = g
+	},
 
-local function mkBtn(text, px, py)
-	local b = Instance.new("TextButton", f)
-	b.Size = UDim2.new(0,200,0,28)
-	b.Position = UDim2.new(0,10,0,py)
-	b.BackgroundColor3 = Color3.fromRGB(60,60,60)
-	b.TextColor3 = Color3.fromRGB(1,1,1)
-	b.Font = Enum.Font.SourceSansSemibold
-	b.TextSize = 14
-	b.Text = text
-	return b
-end
-
-local closeBtn = Instance.new("TextButton", f)
-closeBtn.Size = UDim2.new(0,24,0,24)
-closeBtn.Position = UDim2.new(1,-30,0,6)
-closeBtn.BackgroundColor3 = Color3.fromRGB(160,30,30)
-closeBtn.Text = "X"
-closeBtn.TextColor3 = Color3.new(1,1,1)
-closeBtn.Font = Enum.Font.SourceSansBold
-closeBtn.TextSize = 14
-closeBtn.MouseButton1Click:Connect(function() g:Destroy() end)
-
--- remote
-local remote
-pcall(function()
-	local r = game.ReplicatedStorage:FindFirstChild("BridgeNet2")
-	if r then remote = r:FindFirstChild("dataRemoteEvent")
-	end
-end)
-local bf = buffer and buffer.fromstring
-
-local STATE = {fast=false,spam1=false,spam2=false,shield=false,tp1=false,tp2=false}
-
--- helper to toggle text
-local function setOnOff(btn, on)
-	if on then
-		btn.Text = btn.Text:match(" %(.*%)") and (btn.Text:gsub("%b()", "(ON)")) or (btn.Text.." (ON)")
-	else
-		btn.Text = btn.Text:match(" %(.*%)") and (btn.Text:gsub("%b()", "(OFF)")) or (btn.Text.." (OFF)")
-	end
-end
-
--- Fast M1
-local btnFast = mkBtn("Fast M1 (OFF)", 10, 10)
-btnFast.MouseButton1Click:Connect(function()
-	STATE.fast = not STATE.fast
-	setOnOff(btnFast, STATE.fast)
-	if STATE.fast then
-		task.spawn(function()
-			while STATE.fast do
-				task.wait(0.1)
-				if remote and bf then
-					pcall(function()
-						remote:FireServer({{bf("\019\000\000\0000201000113686372022\000")},"\019"})
-					end)
-				end
-			end
-		end)
-	end
-end)
-
--- Spam M1
-local btnSpam1 = mkBtn("Spam M1 (OFF)", 10, 48)
-btnSpam1.MouseButton1Click:Connect(function()
-	STATE.spam1 = not STATE.spam1
-	setOnOff(btnSpam1, STATE.spam1)
-	if STATE.spam1 then
-		task.spawn(function()
-			while STATE.spam1 do
-				task.wait(0.4)
-				if remote and bf then
-					pcall(function()
-						remote:FireServer({{bf("\019\000\000\0000201000113686372022\000")},"\019"})
-					end)
-				end
-			end
-		end)
-	end
-end)
-
--- Spam M2
-local btnSpam2 = mkBtn("Spam M2 (OFF)", 10, 86)
-btnSpam2.MouseButton1Click:Connect(function()
-	STATE.spam2 = not STATE.spam2
-	setOnOff(btnSpam2, STATE.spam2)
-	if STATE.spam2 then
-		task.spawn(function()
-			while STATE.spam2 do
-				task.wait(0.65)
-				if remote and bf then
-					pcall(function()
-						remote:FireServer({{bf("\019\000\000\0000201100101186595482\000")},"\019"})
-					end)
-				end
-			end
-		end)
-	end
-end)
-
--- Shield
-local btnShield = mkBtn("Shield (OFF)", 10, 124)
-btnShield.MouseButton1Click:Connect(function()
-	STATE.shield = not STATE.shield
-	setOnOff(btnShield, STATE.shield)
-	if remote then
-		pcall(function() remote:FireServer({STATE.shield, "\024"}) end)
-	end
-end)
-
--- Tele frame + buttons
-local teleLabel = Instance.new("TextLabel", f)
-teleLabel.Size = UDim2.new(0,200,0,18)
-teleLabel.Position = UDim2.new(0,10,0,162)
-teleLabel.BackgroundTransparency = 1
-teleLabel.Text = "Tele"
-teleLabel.TextColor3 = Color3.fromRGB(200,200,200)
-teleLabel.Font = Enum.Font.SourceSansBold
-teleLabel.TextSize = 13
-teleLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-local tbtn1 = Instance.new("TextButton", f)
-tbtn1.Size = UDim2.new(0,96,0,28)
-tbtn1.Position = UDim2.new(0,10,0,184)
-tbtn1.Text = "Cổng 1"
-tbtn1.BackgroundColor3 = Color3.fromRGB(70,130,255)
-tbtn1.TextColor3 = Color3.new(1,1,1)
-
-local tbtn2 = Instance.new("TextButton", f)
-tbtn2.Size = UDim2.new(0,96,0,28)
-tbtn2.Position = UDim2.new(0,114,0,184)
-tbtn2.Text = "Cổng 2"
-tbtn2.BackgroundColor3 = Color3.fromRGB(70,200,120)
-tbtn2.TextColor3 = Color3.new(1,1,1)
-
-local loc = {
-	["Cổng 1"] = Vector3.new(18.86713409423828, 0.37274569272994995, -114.86202239990234),
-	["Cổng 2"] = Vector3.new(18.37334884643555, 0.37274569272994995, -140.72775268554688)
+	["noruo69"] = {
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/star%20c%E1%BB%95ng%201",
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/lock%20v%E1%BB%8B%20tr%C3%AD%201",
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/spam%20m2-1",
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/spam%20m-1",
+		"https://raw.githubusercontent.com/anhhien98nd/nolag/refs/heads/main/shield%201"
+	}
 }
-local function doTp(v)
-	local chr = p.Character or p.CharacterAdded:Wait()
-	local hrp = chr:FindFirstChild("HumanoidRootPart")
-	if hrp then hrp.CFrame = CFrame.new(v + Vector3.new(0,5,0)) end
+
+-- Hàm load script an toàn
+local function safeLoad(url)
+	task.spawn(function()
+		local success, result = pcall(function()
+			local source = game:HttpGet(url)
+			if source and #source > 10 then
+				print("⚙️ Đang chạy script:", url)
+				loadstring(source)()
+			else
+				warn("⚠️ Script rỗng hoặc không tải được:", url)
+			end
+		end)
+		if not success then
+			warn("❌ Lỗi khi chạy script:", tostring(result))
+		end
+	end)
 end
-tbtn1.MouseButton1Click:Connect(function() doTp(loc["Cổng 1"]) end)
-tbtn2.MouseButton1Click:Connect(function() doTp(loc["Cổng 2"]) end)
 
--- TP1 Lock
-local btnTP1 = mkBtn("TP1 Lock (OFF)", 10, 222)
-btnTP1.MouseButton1Click:Connect(function()
-	STATE.tp1 = not STATE.tp1
-	setOnOff(btnTP1, STATE.tp1)
-	if STATE.tp1 then
-		local pos = Vector3.new(40,3.63,-130.14)
-		task.spawn(function()
-			while STATE.tp1 do
-				task.wait()
-				local c = p.Character
-				if c and c:FindFirstChild("HumanoidRootPart") then
-					local h = c.HumanoidRootPart
-					h.Velocity = Vector3.new()
-					h.CFrame = CFrame.new(pos)
-				end
-			end
-		end)
-	end
-end)
+-- Chạy script tương ứng tài khoản
+if userScripts[username] then
+	print("✅ Đăng nhập hợp lệ:", username)
+	print("📦 Bắt đầu tải script cho tài khoản:", username)
 
--- TP2 Lock
-local btnTP2 = mkBtn("TP2 Lock (OFF)", 10, 260)
-btnTP2.MouseButton1Click:Connect(function()
-	STATE.tp2 = not STATE.tp2
-	setOnOff(btnTP2, STATE.tp2)
-	if STATE.tp2 then
-		local pos = Vector3.new(42.29,3.63,-132.49)
-		local look
-		pcall(function() look = p.Character and p.Character:FindFirstChild("HumanoidRootPart") and p.Character.HumanoidRootPart.CFrame.LookVector end)
-		task.spawn(function()
-			while STATE.tp2 do
-				task.wait()
-				local c = p.Character
-				if c and c:FindFirstChild("HumanoidRootPart") then
-					local h = c.HumanoidRootPart
-					h.Velocity = Vector3.new()
-					if look then
-						h.CFrame = CFrame.new(pos, pos + look)
-					else
-						h.CFrame = CFrame.new(pos)
-					end
-				end
-			end
-		end)
+	for _, url in ipairs(userScripts[username]) do
+		safeLoad(url)
+		task.wait(0.7) -- giãn thời gian nhẹ tránh lag
 	end
-end)
+
+	print("✨ Hoàn tất tải toàn bộ script cho acc:", username)
+else
+	warn("🚫 Người dùng '" .. username .. "' không được phép. Script sẽ không chạy.")
+end
