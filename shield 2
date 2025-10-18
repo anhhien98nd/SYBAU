@@ -1,0 +1,108 @@
+-- ⚙️ Auto Shield (Lightweight Optimized v2)
+-- Áp dụng theo "Nguyên tắc chung để không làm nặng"
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- 🕒 Schedule các khung thời gian bật shield
+local schedule = {
+    {59, 67},
+    {83, 91},
+    {105, 113},
+}
+
+-- 🔍 Tìm remote (tự động fallback)
+local remote
+pcall(function()
+    local bridge = ReplicatedStorage:FindFirstChild("BridgeNet2")
+    if bridge then
+        remote = bridge:FindFirstChild("dataRemoteEvent")
+    end
+    if not remote then
+        for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+            if v.Name == "dataRemoteEvent" then
+                remote = v
+                break
+            end
+        end
+    end
+end)
+
+-- 🧩 Hàm gửi shield an toàn
+local function safeFireShield(state)
+    if not remote then
+        if not safeFireShield._warned then
+            warn("[Auto Shield] ⚠️ Không tìm thấy dataRemoteEvent.")
+            safeFireShield._warned = true
+        end
+        return
+    end
+    pcall(function()
+        remote:FireServer({ state, "\024" })
+    end)
+end
+
+-- ⚙️ Cấu trúc quản lý shield
+local ShieldController = {
+    tick0 = tick(),
+    activeCount = 0,
+    running = true,
+}
+
+-- 🧹 Cleanup để giảm RAM/CPU khi dừng
+function ShieldController:Stop()
+    self.running = false
+    safeFireShield(false)
+    collectgarbage("collect")
+    print("[Auto Shield] 🛑 Dừng & dọn dẹp hoàn tất.")
+end
+
+-- 🧠 Thread chính — chỉ 1 coroutine duy nhất, không spawn nhiều
+task.spawn(function()
+    print(("[Auto Shield] 🟢 Bắt đầu (tổng %d lịch)."):format(#schedule))
+    local tick0 = ShieldController.tick0
+
+    for i, win in ipairs(schedule) do
+        if not ShieldController.running then break end
+
+        local startT, endT = win[1], win[2]
+        if type(startT) ~= "number" or type(endT) ~= "number" or endT <= startT then
+            warn(("[Auto Shield] ⚠️ Schedule #%d không hợp lệ."):format(i))
+            continue
+        end
+
+        -- 🕓 Chờ tới thời điểm bắt đầu
+        local waitStart = tick0 + startT - tick()
+        if waitStart > 0 then task.wait(waitStart) end
+        if not ShieldController.running then break end
+
+        -- ⏩ Bật shield
+        ShieldController.activeCount += 1
+        if ShieldController.activeCount == 1 then
+            print(("[Auto Shield] #%d BẬT (%.1fs→%.1fs)"):format(i, startT, endT))
+            safeFireShield(true)
+        else
+            print(("[Auto Shield] #%d BẬT (activeCount=%d)"):format(i, ShieldController.activeCount))
+        end
+
+        -- 🕓 Giữ đến lúc tắt
+        local duration = tick0 + endT - tick()
+        if duration > 0 then task.wait(duration) end
+        if not ShieldController.running then break end
+
+        -- ⏹️ Giảm counter, tắt khi hết khung active
+        ShieldController.activeCount = math.max(0, ShieldController.activeCount - 1)
+        if ShieldController.activeCount == 0 then
+            print(("[Auto Shield] #%d TẮT (%.1fs) → gửi false"):format(i, endT))
+            safeFireShield(false)
+        else
+            print(("[Auto Shield] #%d TẮT (%.1fs) → còn %d khung active"):format(i, endT, ShieldController.activeCount))
+        end
+    end
+
+    ShieldController:Stop()
+end)
+
+-- 🛑 Cho phép dừng thủ công
+getgenv().StopAutoShield = function()
+    ShieldController:Stop()
+end
