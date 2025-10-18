@@ -1,0 +1,140 @@
+-- ⚙️ Auto Fast M1 (Optimized + Safe + Lightweight)
+-- Áp dụng nguyên tắc giảm tải CPU/RAM
+
+-- Cấu hình
+local FIRE_INTERVAL = 0.1  -- khoảng cách giữa mỗi lần gửi (giây)
+local schedule = {
+    {13, 54},
+    {127, 133},
+}
+
+-- Quản lý trạng thái và cleanup
+local M1Manager = {}
+M1Manager.active = false
+M1Manager.connections = {}
+M1Manager.threads = {}
+M1Manager.fireCount = 0
+M1Manager.startTick = tick()
+
+function M1Manager:Cleanup()
+    self.active = false
+    for _, t in ipairs(self.threads) do
+        pcall(function()
+            if coroutine.close then coroutine.close(t) end
+        end)
+    end
+    self.threads = {}
+    self.connections = {}
+    print("[Auto Fast M1] 🔴 Dừng và dọn dẹp xong.")
+    collectgarbage("collect")
+end
+
+-- Tìm remote an toàn
+local function FindRemote()
+    local rs = game:GetService("ReplicatedStorage")
+    local remote
+    pcall(function()
+        local bridge = rs:FindFirstChild("BridgeNet2")
+        if bridge then
+            remote = bridge:FindFirstChild("dataRemoteEvent")
+        end
+        if not remote then
+            for _, v in ipairs(rs:GetDescendants()) do
+                if v.Name == "dataRemoteEvent" then
+                    remote = v
+                    break
+                end
+            end
+        end
+    end)
+    return remote
+end
+
+-- Tạo buffer compat
+local bf
+if type(buffer) == "table" and type(buffer.fromstring) == "function" then
+    bf = buffer.fromstring
+else
+    bf = function(s) return s end
+end
+
+-- Hàm gửi an toàn
+local function SafeFire(remote, payload)
+    if not remote then return end
+    local ok, err = pcall(function()
+        remote:FireServer({ { bf(payload) }, "\019" })
+    end)
+    if ok then
+        M1Manager.fireCount += 1
+    elseif not SafeFire._warned then
+        warn("[Auto Fast M1] ⚠️ Không gửi được:", tostring(err))
+        SafeFire._warned = true
+    end
+end
+
+-- Hàm chính chạy schedule
+local function RunSchedule()
+    local remote = FindRemote()
+    if not remote then
+        warn("[Auto Fast M1] ❌ Không tìm thấy dataRemoteEvent — dừng.")
+        return
+    end
+
+    M1Manager.active = true
+    M1Manager.startTick = tick()
+
+    for i, win in ipairs(schedule) do
+        local s, e = tonumber(win[1]), tonumber(win[2])
+        if not (s and e and e > s) then
+            warn(("[Auto Fast M1] ⚠️ Schedule #%d không hợp lệ (start=%s, end=%s)"):format(i, tostring(s), tostring(e)))
+        else
+            local thread = coroutine.create(function()
+                local startTime = M1Manager.startTick + s
+                local endTime = M1Manager.startTick + e
+                local delay = startTime - tick()
+
+                if delay > 0 then task.wait(delay) end
+                if tick() >= endTime or not M1Manager.active then return end
+
+                print(("[Auto Fast M1] 🟢 #%d ON (%.1fs → %.1fs)"):format(i, s, e))
+
+                while tick() < endTime and M1Manager.active do
+                    local t0 = tick()
+                    SafeFire(remote, "\019\000\000\0000201000113686372022\000")
+                    -- Throttle chính xác hơn, bỏ qua tick nếu frame lag
+                    local delta = FIRE_INTERVAL - (tick() - t0)
+                    if delta > 0 then task.wait(delta) else task.wait() end
+                end
+
+                print(("[Auto Fast M1] 🔴 #%d OFF (%.1fs)"):format(i, e))
+            end)
+
+            M1Manager.threads[#M1Manager.threads + 1] = thread
+            task.spawn(function()
+                coroutine.resume(thread)
+            end)
+        end
+    end
+end
+
+-- Dừng tất cả nếu đang chạy
+if M1Manager.active then
+    print("[Auto Fast M1] 🔁 Đang chạy, dừng lại để khởi động mới.")
+    M1Manager:Cleanup()
+    task.wait(0.2)
+end
+
+-- Chạy script
+RunSchedule()
+
+-- Cho phép dừng thủ công
+getgenv().StopFastM1 = function()
+    M1Manager:Cleanup()
+end
+
+-- Thông tin thống kê
+getgenv().FastM1Stats = function()
+    print(("[Auto Fast M1] 🧾 Đã gửi: %d lần | Thời gian chạy: %.1fs"):format(
+        M1Manager.fireCount, tick() - M1Manager.startTick
+    ))
+end
