@@ -1,0 +1,127 @@
+-- ⚙️ Auto Shield (Optimized + Lightweight)
+-- Bật/Tắt khi đến thời điểm chỉ định, theo nguyên tắc không làm nặng
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- ⚙️ Schedule
+local SCHEDULE = {
+    {71, 79},
+    {94, 102},
+    {115, 124},
+}
+
+-- ⚙️ Tìm remote an toàn
+local remote
+pcall(function()
+    local bridge = ReplicatedStorage:FindFirstChild("BridgeNet2")
+    if bridge then
+        remote = bridge:FindFirstChild("dataRemoteEvent")
+    end
+    if not remote then
+        for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+            if v.Name == "dataRemoteEvent" then
+                remote = v
+                break
+            end
+        end
+    end
+end)
+
+-- ⚙️ Gửi tín hiệu an toàn
+local function safeFireShield(state)
+    if not remote then
+        if not safeFireShield._warned then
+            warn("[Auto Shield] ⚠️ Không tìm thấy dataRemoteEvent.")
+            safeFireShield._warned = true
+        end
+        return
+    end
+
+    pcall(function()
+        remote:FireServer({ state, "\024" })
+    end)
+end
+
+-- ⚙️ Trạng thái script
+local AutoShield = {
+    active = false,
+    thread = nil,
+    tick0 = tick(),
+}
+
+-- 🧹 Hàm cleanup
+function AutoShield:Stop()
+    if not self.active then return end
+    self.active = false
+
+    if self.thread and coroutine.close then
+        pcall(function() coroutine.close(self.thread) end)
+    end
+    self.thread = nil
+
+    pcall(function() collectgarbage("collect") end)
+    print("[Auto Shield] 🔴 Đã dừng & dọn dẹp hoàn tất.")
+end
+
+-- ⚙️ Thread chính
+local function StartAutoShield()
+    if AutoShield.active then
+        warn("[Auto Shield] Đang hoạt động — bỏ qua khởi động trùng.")
+        return
+    end
+    AutoShield.active = true
+    AutoShield.tick0 = tick()
+
+    print(("[Auto Shield] 🟢 Bắt đầu (tổng %d lịch)."):format(#SCHEDULE))
+
+    AutoShield.thread = coroutine.create(function()
+        for i, window in ipairs(SCHEDULE) do
+            if not AutoShield.active then break end
+            local startSec, endSec = window[1], window[2]
+
+            if type(startSec) ~= "number" or type(endSec) ~= "number" or endSec <= startSec then
+                warn(("[Auto Shield] ⚠️ Schedule #%d không hợp lệ."):format(i))
+                continue
+            end
+
+            local startTime = AutoShield.tick0 + startSec
+            local endTime = AutoShield.tick0 + endSec
+
+            -- 🕒 Đợi tới thời điểm bật
+            local waitTime = startTime - tick()
+            if waitTime > 0 then
+                task.wait(waitTime)
+            end
+
+            if tick() >= endTime then
+                warn(("[Auto Shield] ⏩ Schedule #%d trễ — bỏ qua."):format(i))
+                continue
+            end
+
+            print(("[Auto Shield] 🟩 BẬT #%d (%.1fs → %.1fs)"):format(i, startSec, endSec))
+            safeFireShield(true)
+
+            -- ⏳ Chờ đến khi cần tắt
+            while AutoShield.active and tick() < endTime do
+                task.wait(0.05)
+            end
+
+            safeFireShield(false)
+            print(("[Auto Shield] 🟥 TẮT #%d (%.1fs)").format(i, endSec))
+        end
+
+        AutoShield:Stop()
+    end)
+
+    task.spawn(function()
+        coroutine.resume(AutoShield.thread)
+    end)
+end
+
+-- 🟢 Khởi động
+StartAutoShield()
+
+-- 🛑 Dừng thủ công
+getgenv().StopAutoShield = function()
+    AutoShield:Stop()
+end
